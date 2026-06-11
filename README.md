@@ -75,7 +75,4 @@ npm start
 *   **Aplicación Web**: [http://localhost:3000](http://localhost:3000)
 *   **Neo4j Browser**: [http://localhost:7474](http://localhost:7474) (Credenciales: `neo4j` / `antifraude123`)
 
----
 
-rigin main
-   ```
