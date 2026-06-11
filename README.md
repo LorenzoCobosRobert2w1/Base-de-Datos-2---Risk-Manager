@@ -77,27 +77,5 @@ npm start
 
 ---
 
-## 📝 Cómo publicar en GitHub
-
-Si quieres subir este proyecto a tu propio repositorio, sigue estos pasos:
-
-1. **Inicializar el repo**:
-   ```powershell
-   git init
-   ```
-2. **Crear .gitignore** (Muy importante para no subir `node_modules`):
-   ```powershell
-   echo "node_modules/" > .gitignore
-   ```
-3. **Añadir archivos y commit**:
-   ```powershell
-   git add .
-   git commit -m "Initial commit: AntiFraud Console with Neo4j"
-   ```
-4. **Subir a GitHub**:
-   Crea un repo vacío en GitHub y luego ejecuta:
-   ```powershell
-   git remote add origin https://github.com/TU_USUARIO/TU_REPO.git
-   git branch -M main
-   git push -u origin main
+rigin main
    ```
