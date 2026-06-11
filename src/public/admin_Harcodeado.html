@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Management Console | Neo4j Engine</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0d1117;
+            --bg-card: #161b22;
+            --bg-card-2: #1c2128;
+            --border: #30363d;
+            --border-bright: #444c56;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --text-dim: #6e7681;
+            --blue: #1f6feb;
+            --blue-light: #388bfd;
+            --green: #238636;
+            --green-light: #3fb950;
+            --red: #da3633;
+            --red-light: #f85149;
+            --yellow: #9e6a03;
+            --yellow-light: #d29922;
+            --orange: #bd561d;
+            --orange-light: #f0883e;
+            --purple: #6e40c9;
+            --sidebar-w: 240px;
+            --drawer-w: 520px;
+            --mono: 'IBM Plex Mono', monospace;
+            --sans: 'IBM Plex Sans', sans-serif;
+            --radius: 6px;
+            --radius-sm: 3px;
+            --transition: 0.15s ease;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 13px;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Focus states for a11y */
+        :focus-visible {
+            outline: 2px solid var(--blue-light);
+            outline-offset: 2px;
+        }
+
+        /* ======================== SIDEBAR ======================== */
+        aside {
+            width: var(--sidebar-w);
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            z-index: 100;
+            flex-shrink: 0;
+            transition: transform var(--transition);
+        }
+
+        .brand-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 32px; height: 32px;
+            background: var(--blue);
+            border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+
+        .brand-text { font-size: 14px; font-weight: 700; color: var(--text); }
+        .brand-sub { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-top: 1px; }
+
+        .nav-section-label {
+            padding: 20px 16px 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .nav-item {
+            width: 100%;
+            padding: 8px 16px;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            background: transparent;
+            border: none;
+            border-left: 2px solid transparent;
+            text-align: left;
+            transition: background var(--transition), color var(--transition);
+        }
+
+        .nav-item:hover { background: var(--bg-card-2); color: var(--text); }
+        .nav-item.active { 
+            background: rgba(31,111,235,0.07); 
+            color: var(--blue-light); 
+            border-left-color: var(--blue-light); 
+        }
+
+        .nav-item svg { opacity: 0.6; flex-shrink: 0; transition: opacity var(--transition); }
+        .nav-item:hover svg, .nav-item.active svg { opacity: 1; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 32px; height: 32px;
+            background: var(--purple);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .avatar-info { font-size: 11px; }
+        .avatar-name { font-weight: 600; color: var(--text); }
+        .avatar-role { color: var(--text-muted); }
+
+        /* ======================== MAIN ======================== */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .top-bar {
+            height: 48px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+
+        .top-bar-left { display: flex; align-items: center; gap: 12px; }
+        .breadcrumb { font-size: 12px; color: var(--text-muted); }
+        .breadcrumb span { color: var(--text); font-weight: 600; }
+
+        .top-bar-right { display: flex; align-items: center; gap: 12px; }
+
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--green-light);
+            box-shadow: 0 0 8px var(--green-light);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .status-label { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+        .view-container { padding: 24px; overflow-y: auto; flex: 1; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.25s ease-out; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ======================== CARDS ======================== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .card-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .card-body { padding: 16px; }
+
+        /* ======================== KPI GRID ======================== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            transition: border-color var(--transition);
+        }
+        .kpi-card:hover { border-color: var(--border-bright); }
+
+        .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; margin-bottom: 10px; }
+        .kpi-value { font-size: 24px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+        .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+        .kpi-red { color: var(--red-light); }
+        .kpi-green { color: var(--green-light); }
+        .kpi-yellow { color: var(--yellow-light); }
+        .kpi-blue { color: var(--blue-light); }
+        .kpi-orange { color: var(--orange-light); }
+
+        .kpi-trend {
+            font-size: 11px;
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+
+        /* ======================== GRID LAYOUT ======================== */
+        .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .three-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+
+        /* ======================== TABLE ======================== */
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: calc(100vh - 240px);
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+
+        th {
+            position: sticky; top: 0; z-index: 5;
+            text-align: left;
+            padding: 10px 16px;
+            background: var(--bg-card-2);
+            color: var(--text-muted);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.03); }
+
+        .td-mono { font-family: var(--mono); font-size: 11px; color: var(--text); }
+
+        /* ======================== BADGES ======================== */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid transparent;
+        }
+
+        .badge-red { background: rgba(218,54,51,0.1); color: var(--red-light); border-color: rgba(218,54,51,0.2); }
+        .badge-green { background: rgba(35,134,54,0.1); color: var(--green-light); border-color: rgba(35,134,54,0.2); }
+        .badge-yellow { background: rgba(158,106,3,0.1); color: var(--yellow-light); border-color: rgba(158,106,3,0.2); }
+        .badge-blue { background: rgba(31,111,235,0.1); color: var(--blue-light); border-color: rgba(31,111,235,0.2); }
+        .badge-orange { background: rgba(189,86,29,0.1); color: var(--orange-light); border-color: rgba(189,86,29,0.2); }
+        .badge-gray { background: rgba(255,255,255,0.05); color: var(--text-muted); border-color: var(--border); }
+
+        /* ======================== BUTTONS ======================== */
+        .btn {
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all var(--transition);
+            font-family: var(--sans);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            line-height: 1;
+        }
+
+        .btn-primary {
+            background: var(--blue);
+            color: white;
+            border-color: var(--blue-light);
+            box-shadow: 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .btn-primary:hover { background: var(--blue-light); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
+        .btn-ghost:hover { background: var(--bg-card-2); color: var(--text); border-color: var(--border-bright); }
+
+        .btn-success {
+            background: rgba(35,134,54,0.15);
+            color: var(--green-light);
+            border-color: rgba(35,134,54,0.3);
+        }
+        .btn-success:hover { background: rgba(35,134,54,0.25); border-color: var(--green-light); }
+
+        .btn-danger {
+            background: rgba(218,54,51,0.15);
+            color: var(--red-light);
+            border-color: rgba(218,54,51,0.3);
+        }
+        .btn-danger:hover { background: rgba(218,54,51,0.25); border-color: var(--red-light); }
+
+        .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+        /* ======================== DRAWER ======================== */
+        #audit-drawer {
+            position: fixed;
+            right: -540px;
+            top: 0;
+            width: var(--drawer-w);
+            max-width: 90vw;
+            height: 100vh;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            z-index: 200;
+            transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -16px 0 48px rgba(0,0,0,0.5);
+        }
+
+        #audit-drawer.open { right: 0; }
+
+        .drawer-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            background: rgba(255,255,255,0.01);
+        }
+
+        .drawer-header-info h3 { font-size: 15px; font-weight: 700; }
+        .drawer-header-info p { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-top: 4px; }
+
+        .drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ======================== TERMINAL ======================== */
+        .terminal-zone {
+            background: #010409;
+            border-bottom: 1px solid var(--border);
+            padding: 16px;
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.6;
+            height: 180px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            color: #d1d5db;
+        }
+
+        .terminal-zone .t-comment { color: var(--text-dim); }
+        .terminal-zone .t-query { color: #79c0ff; }
+        .terminal-zone .t-result { color: var(--green-light); }
+        .terminal-zone .t-warn { color: var(--yellow-light); }
+        .terminal-zone .t-danger { color: var(--red-light); }
+        .terminal-zone .t-ts { color: var(--text-dim); }
+
+        /* ======================== GRAPH ZONE ======================== */
+        .graph-zone {
+            height: 240px;
+            background: #010409;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .graph-label {
+            position: absolute;
+            top: 10px; left: 16px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-weight: 600;
+        }
+
+        svg.graph-svg {
+            width: 100%; height: 100%;
+        }
+
+        /* ======================== VERDICT PANEL ======================== */
+        .verdict-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .verdict-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; }
+
+        .verdict-engine-result {
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            margin-bottom: 16px;
+            border: 1px solid transparent;
+            font-family: var(--mono);
+            line-height: 1.5;
+        }
+
+        .verdict-engine-result.danger {
+            background: rgba(218,54,51,0.07);
+            border-color: rgba(218,54,51,0.25);
+            color: var(--red-light);
+        }
+
+        .verdict-engine-result.warning {
+            background: rgba(158,106,3,0.1);
+            border-color: rgba(158,106,3,0.25);
+            color: var(--yellow-light);
+        }
+
+        .verdict-engine-result.clean {
+            background: rgba(35,134,54,0.07);
+            border-color: rgba(35,134,54,0.25);
+            color: var(--green-light);
+        }
+
+        .verdict-rule-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+        .rule-tag {
+            padding: 3px 10px;
+            background: rgba(31,111,235,0.07);
+            border: 1px solid rgba(56,139,253,0.2);
+            border-radius: 4px;
+            font-size: 11px;
+            color: var(--blue-light);
+            font-family: var(--mono);
+            font-weight: 500;
+        }
+
+        /* ======================== ANALYST DECISION ======================== */
+        .analyst-section {
+            padding: 20px;
+            flex: 1;
+        }
+
+        .analyst-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+        .decision-info {
+            font-size: 12px;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 16px;
+            line-height: 1.6;
+        }
+
+        textarea.justification {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 13px;
+            padding: 12px;
+            resize: vertical;
+            min-height: 100px;
+            line-height: 1.5;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+
+        textarea.justification:focus { border-color: var(--blue-light); }
+        textarea.justification::placeholder { color: var(--text-dim); }
+
+        .decision-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .decision-result {
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .decision-result.show { display: block; }
+
+        /* ======================== AUDIT LOG (HISTORY) ======================== */
+        .audit-log-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .audit-log-item {
+            padding: 14px;
+            background: var(--bg-card-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            transition: border-color var(--transition);
+        }
+        .audit-log-item:hover { border-color: var(--border-bright); }
+
+        .audit-log-id { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--blue-light); }
+        .audit-log-analyst { font-size: 12px; color: var(--text-muted); }
+        .audit-log-justif { font-size: 12px; color: var(--text); margin-top: 10px; font-style: italic; grid-column: 1/-1; border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.6; }
+
+        /* ======================== RULES ENGINE ======================== */
+        .rule-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: border-color var(--transition);
+        }
+        .rule-card:hover { border-color: var(--border-bright); }
+
+        .rule-card-header {
+            width: 100%;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            text-align: left;
+            transition: background var(--transition);
+        }
+
+        .rule-card-header:hover { background: rgba(255,255,255,0.02); }
+
+        .rule-id { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--blue-light); }
+        .rule-name { font-size: 14px; font-weight: 600; margin-left: 12px; color: var(--text); }
+
+        .rule-body {
+            padding: 0 18px 18px;
+            border-top: 1px solid var(--border);
+            display: none;
+            background: rgba(0,0,0,0.1);
+        }
+
+        .rule-body.open { display: block; animation: slideDown 0.2s ease-out; }
+
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .rule-field { margin-top: 16px; }
+        .rule-field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px; }
+        .rule-field input, .rule-field select, .rule-field textarea {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 8px 12px;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+        .rule-field input:focus, .rule-field select:focus { border-color: var(--blue-light); }
+        .rule-field textarea { resize: vertical; min-height: 60px; line-height: 1.5; font-family: var(--sans); }
+
+        .rule-actions { display: flex; gap: 8px; margin-top: 20px; }
+
+        .cypher-block {
+            background: #010409;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: #79c0ff;
+            line-height: 1.7;
+            white-space: pre;
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        .rules-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+        /* ======================== CLOSE BTN ======================== */
+        .close-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 4px;
+            width: 32px; height: 32px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            transition: all var(--transition);
+        }
+        .close-btn:hover { background: var(--bg-card-2); color: var(--text); border-color: var(--border-bright); }
+
+        /* ======================== OVERLAY ======================== */
+        #overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 190;
+            animation: fadeInOverlay 0.2s ease;
+        }
+        @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+        #overlay.show { display: block; }
+
+        /* ======================== SCROLLBAR ======================== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-bright); background-clip: content-box; }
+
+        /* ======================== CHART CONTAINER ======================== */
+        .chart-container { height: 240px; }
+
+        /* ======================== RISK SCORE BAR ======================== */
+        .risk-bar-wrap { display: flex; align-items: center; gap: 10px; }
+        .risk-bar-outer { flex: 1; height: 6px; background: var(--bg-card-2); border-radius: 3px; overflow: hidden; }
+        .risk-bar-inner { height: 100%; border-radius: 3px; transform-origin: left; transition: transform 0.5s ease-out; }
+
+        /* ======================== MINI STAT ======================== */
+        .mini-stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+        .mini-stat:last-child { border-bottom: none; }
+        .mini-stat-label { color: var(--text-muted); }
+        .mini-stat-val { font-weight: 600; font-family: var(--mono); }
+
+        .section-mb { margin-bottom: 24px; }
+
+        /* ======================== RESPONSIVE ======================== */
+        @media (max-width: 1200px) {
+            :root { --sidebar-w: 70px; }
+            .brand-text, .brand-sub, .nav-item span, .nav-section-label, .avatar-info { display: none; }
+            .brand-header, .sidebar-footer, .nav-item { justify-content: center; padding: 12px; }
+            .nav-item { border-left: none; border-right: 3px solid transparent; }
+            .nav-item.active { border-right-color: var(--blue-light); }
+            .nav-item svg { margin: 0; }
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            aside { width: 100%; height: auto; flex-direction: row; border-right: none; border-bottom: 1px solid var(--border); }
+            .brand-header { border-bottom: none; border-right: 1px solid var(--border); }
+            nav { display: flex; flex: 1; }
+            .nav-section-label, .sidebar-footer { display: none; }
+            .nav-item { border-right: none; border-bottom: 3px solid transparent; }
+            .nav-item.active { border-bottom-color: var(--blue-light); }
+            .two-col, .three-col { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- OVERLAY -->
+<div id="overlay" onclick="closeDrawer()"></div>
+
+<!-- DRAWER DE AUDITORÍA -->
+<div id="audit-drawer">
+    <div class="drawer-header">
+        <div class="drawer-header-info">
+            <h3 id="drawer-title">Análisis Relacional Neo4j</h3>
+            <p id="drawer-subtitle">— sin caso activo —</p>
+        </div>
+        <button class="close-btn" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body">
+        <!-- TERMINAL CYPHER -->
+        <div class="terminal-zone" id="neo-terminal">
+            <span class="t-comment">// Motor de análisis de grafos listo. Seleccione un caso para auditar.</span>
+        </div>
+
+        <!-- GRAFO SVG -->
+        <div class="graph-zone">
+            <span class="graph-label">Visualización de Relaciones Neo4j</span>
+            <svg class="graph-svg" id="graph-svg" viewBox="0 0 520 220" xmlns="http://www.w3.org/2000/svg">
+                <text x="260" y="115" text-anchor="middle" fill="#484f58" font-size="11" font-family="IBM Plex Mono, monospace">
+                    Ejecute una auditoría para ver el grafo relacional
+                </text>
+            </svg>
+        </div>
+
+        <!-- VEREDICTO DEL MOTOR -->
+        <div class="verdict-section">
+            <div class="verdict-header">⬡ Resultado del Motor Antifraude</div>
+            <div class="verdict-engine-result clean" id="engine-verdict">
+                Esperando ejecución de consultas Cypher...
+            </div>
+            <div class="verdict-rule-tags" id="verdict-rules"></div>
+            <div id="verdict-detail" style="font-size: 11px; color: var(--text-muted); line-height: 1.6;"></div>
+        </div>
+
+        <!-- PANEL DE DECISIÓN DEL ANALISTA -->
+        <div class="analyst-section">
+            <div class="analyst-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Decisión Final del Analista
+            </div>
+
+            <div class="decision-info" id="decision-info">
+                Seleccione un caso de la cola para habilitар la toma de decisión. <strong>El sistema recomienda una acción, pero la resolución final es responsabilidad del analista.</strong>
+            </div>
+
+            <div>
+                <label style="display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:600; margin-bottom:5px;">Justificación del Analista <span style="color:var(--red-light)">*</span></label>
+                <textarea class="justification" id="analyst-notes" placeholder="Documente aquí el razonamiento detrás de la decisión. Esta nota queda registrada en el historial de auditoría..." disabled></textarea>
+            </div>
+
+            <div class="decision-buttons" id="decision-buttons">
+                <button class="btn btn-success" id="btn-approve" onclick="submitDecision('LIQUIDADO')" disabled>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aprobar y Liquidar
+                </button>
+                <button class="btn btn-danger" id="btn-reject" onclick="submitDecision('RECHAZADO_FRAUDE')" disabled>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Rechazar por Fraude
+                </button>
+            </div>
+
+            <div class="decision-result" id="decision-result"></div>
+        </div>
+    </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside>
+    <div class="brand-header">
+        <div class="brand-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+            <div class="brand-text">AntiFraud Console</div>
+            <div class="brand-sub">neo4j engine v3.4</div>
+        </div>
+    </div>
+
+    <nav>
+        <div class="nav-section-label">Análisis</div>
+        <button class="nav-item active" onclick="switchView('view-dashboard', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <span>Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="switchView('view-investigation', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>Centro de Investigación</span>
+        </button>
+        <button class="nav-item" onclick="switchView('view-history', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <span>Historial de Auditoría</span>
+        </button>
+
+        <div class="nav-section-label">Configuración</div>
+        <button class="nav-item" onclick="switchView('view-rules', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Motor de Reglas</span>
+        </button>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="avatar">LA</div>
+        <div class="avatar-info">
+            <div class="avatar-name">Luis Andreani</div>
+            <div class="avatar-role">Auditor Senior</div>
+        </div>
+    </div>
+</aside>
+
+<!-- MAIN -->
+<main>
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <div class="breadcrumb">AntiFraud Console / <span id="view-title">Dashboard</span></div>
+        </div>
+        <div class="top-bar-right">
+            <div class="status-dot"></div>
+            <span class="status-label">Neo4j CONECTADO · Lote 2026-06</span>
+        </div>
+    </div>
+
+    <div class="view-container">
+
+        <!-- ========== DASHBOARD ========== -->
+        <section id="view-dashboard" class="view-section active">
+            
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Fondos Retenidos</div>
+                    <div class="kpi-value kpi-red">$3.43M</div>
+                    <div class="kpi-sub">5 casos en auditoría activa</div>
+                    <div class="kpi-trend" style="color: var(--red-light);">↑ +16% vs mes anterior</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Fondos Liquidados</div>
+                    <div class="kpi-value kpi-green">$12.42M</div>
+                    <div class="kpi-sub">42 siniestros validados</div>
+                    <div class="kpi-trend" style="color: var(--green-light);">↑ +4% vs mes anterior</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Anomalías Detectadas</div>
+                    <div class="kpi-value kpi-yellow">47</div>
+                    <div class="kpi-sub">Motor ejecutado 312 veces</div>
+                    <div class="kpi-trend" style="color: var(--text-muted);">Tasa de detección: 15.1%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Casos Pendientes</div>
+                    <div class="kpi-value kpi-orange">5</div>
+                    <div class="kpi-sub">Requieren decisión analista</div>
+                    <div class="kpi-trend" style="color: var(--yellow-light);">↑ 2 nuevos hoy</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Tasa de Fraude</div>
+                    <div class="kpi-value kpi-blue">3.2%</div>
+                    <div class="kpi-sub">Sobre cartera total</div>
+                    <div class="kpi-trend" style="color: var(--green-light);">↓ Benchmark: 5.1%</div>
+                </div>
+            </div>
+
+            <div class="two-col section-mb">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Volumen de Riesgo por Semana (Mayo – Junio 2026)</span>
+                        <span class="badge badge-gray">Línea temporal</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="evolutionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Distribución por Tipo de Fraude</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 200px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="three-col">
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Top Proveedores en Alerta</span></div>
+                    <div class="card-body" style="padding: 10px 14px;">
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Taller Warnes Premium</span>
+                            <span class="mini-stat-val kpi-red">4 casos</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Taller San José</span>
+                            <span class="mini-stat-val kpi-yellow">2 casos</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Clínica del Sur</span>
+                            <span class="mini-stat-val kpi-yellow">1 caso</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">Perito Marconi & Asoc.</span>
+                            <span class="mini-stat-val kpi-yellow">1 caso</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Reglas Activadas Hoy</span></div>
+                    <div class="card-body" style="padding: 10px 14px;">
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">BR-01 (Umbral de Monto)</span>
+                            <span class="mini-stat-val">3</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">BR-02 (Colusión)</span>
+                            <span class="mini-stat-val">1</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">BR-04 (Freq. Alta)</span>
+                            <span class="mini-stat-val">2</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">BR-06 (IP Duplicada)</span>
+                            <span class="mini-stat-val">1</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Últimas Resoluciones</span></div>
+                    <div class="card-body" style="padding: 10px 14px;">
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">SN-1001 (Aprobado)</span>
+                            <span class="mini-stat-val kpi-green" style="font-size:10px;">L. Andreani</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">SN-3001 (Rechazado)</span>
+                            <span class="mini-stat-val kpi-red" style="font-size:10px;">L. Andreani</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">SN-4003 (Aprobado)</span>
+                            <span class="mini-stat-val kpi-green" style="font-size:10px;">M. García</span>
+                        </div>
+                        <div class="mini-stat">
+                            <span class="mini-stat-label">SN-2201 (Rechazado)</span>
+                            <span class="mini-stat-val kpi-red" style="font-size:10px;">M. García</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== CENTRO DE INVESTIGACIÓN ========== -->
+        <section id="view-investigation" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <h2 style="font-size: 15px; font-weight: 700;">Cola de Auditoría Relacional</h2>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Haga clic en "Auditar Neo4j" para analizar las relaciones de grafo de cada siniestro y tomar una decisión.</p>
+                </div>
+                <div class="badge badge-yellow">5 casos pendientes de resolución</div>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th style="width: 110px;">Tipo de Alerta</th>
+                                <th>Asegurado (DNI)</th>
+                                <th style="width: 110px;">Monto Reclamado</th>
+                                <th style="width: 100px;">Fecha</th>
+                                <th>Proveedor (Taller)</th>
+                                <th style="width: 90px;">Score Riesgo</th>
+                                <th style="width: 90px;">Reglas</th>
+                                <th style="width: 110px;">Estado</th>
+                                <th style="width: 110px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="claimsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== HISTORIAL ========== -->
+        <section id="view-history" class="view-section">
+            <div style="margin-bottom: 14px;">
+                <h2 style="font-size: 15px; font-weight: 700;">Historial de Auditoría</h2>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Decisiones tomadas por analistas. Todas las acciones quedan trazadas con su justificación.</p>
+            </div>
+            <div id="history-list">
+                <div style="color: var(--text-muted); font-size: 12px; padding: 20px; text-align: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;">
+                    No hay decisiones registradas en esta sesión aún. Las resoluciones aparecerán aquí una vez que el analista complete una auditoría.
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== MOTOR DE REGLAS ========== -->
+        <section id="view-rules" class="view-section">
+            <div class="rules-topbar">
+                <div>
+                    <h2 style="font-size: 15px; font-weight: 700;">Motor de Reglas Antifraude</h2>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Defina, ajuste y active las reglas de negocio que dispara el motor Neo4j. Haga clic en una regla para expandir su configuración.</p>
+                </div>
+                <button class="btn btn-primary" onclick="alert('Funcionalidad: crear nueva regla BR personalizada')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Nueva Regla
+                </button>
+            </div>
+
+            <div id="rules-container"></div>
+        </section>
+
+    </div>
+</main>
+
+<script>
+// =====================================================================
+// DATA
+// =====================================================================
+
+const claimsDataset = [
+    {
+        id: "SN-4001",
+        categoria: "Fraude Duro",
+        categoryBadge: "badge-red",
+        userId: "20-33445566-9",
+        usuarioNombre: "Mario Rossi",
+        monto: 2500000,
+        fechaReporte: "2026-05-15",
+        tipoCobertura: "Destrucción Total",
+        proveedorCuit: "30-11223344-5",
+        proveedorNombre: "Taller San José",
+        scoreRiesgo: 0.97,
+        rules: ["BR-01"],
+        estado: "PENDIENTE",
+        engineVerdict: "danger",
+        engineMsg: "ALERTA CRÍTICA · Monto supera umbral BR-01 ($1.000.000). Activación automática de auditoría obligatoria.",
+        verdictDetail: "El monto reclamado de $2.500.000 por destrucción total supera 2.5× el umbral de BR-01. El vehículo (Patente: AC839ZD) fue reportado en zona sin cámaras. No se registran antecedentes de siniestros del asegurado, pero el taller asociado presenta 2 casos anteriores de presupuestos inflados.",
+        graphType: "linear",
+        recommendation: "RECHAZAR"
+    },
+    {
+        id: "SN-5001",
+        categoria: "Colusión",
+        categoryBadge: "badge-orange",
+        userId: "20-12345678-0",
+        usuarioNombre: "Carlos Tevez",
+        monto: 450000,
+        fechaReporte: "2026-03-10",
+        tipoCobertura: "Terceros",
+        proveedorCuit: "30-71458922-9",
+        proveedorNombre: "Taller Warnes Premium",
+        scoreRiesgo: 0.88,
+        rules: ["BR-02", "BR-04"],
+        estado: "PENDIENTE",
+        engineVerdict: "danger",
+        engineMsg: "ALERTA CRÍTICA · Colusión confirmada BR-02. Taller Warnes Premium vinculado a 4 asegurados distintos en <180 días.",
+        verdictDetail: "MATCH (p:Proveedor {cuit:'30-71458922-9'})<-[:ASOCIADO_A]-(s)<-[:REPORTO]-(u) devolvió frecuencia = 4. El mismo taller procesó siniestros de Tevez, Messi, Aguero y un cuarto asegurado. Los montos son similares ($380K–$600K), coberturas idénticas (Terceros) y fechas agrupadas en un lapso de 55 días. Alta probabilidad de red coordinada.",
+        graphType: "star",
+        recommendation: "RECHAZAR"
+    },
+    {
+        id: "SN-5002",
+        categoria: "Colusión",
+        categoryBadge: "badge-orange",
+        userId: "20-98765432-1",
+        usuarioNombre: "Lionel Messi",
+        monto: 600000,
+        fechaReporte: "2026-04-05",
+        tipoCobertura: "Terceros",
+        proveedorCuit: "30-71458922-9",
+        proveedorNombre: "Taller Warnes Premium",
+        scoreRiesgo: 0.88,
+        rules: ["BR-02"],
+        estado: "PENDIENTE",
+        engineVerdict: "danger",
+        engineMsg: "ALERTA CRÍTICA · Mismo anillo de colusión BR-02 detectado. Ver SN-5001 para contexto completo.",
+        verdictDetail: "Este siniestro forma parte del mismo clúster de colusión detectado en SN-5001. Mismo proveedor, mismo rango de monto, misma cobertura. El score de riesgo del nodo (:Usuario {id:'20-98765432-1'}) es 0.88 (crítico > 0.8).",
+        graphType: "star",
+        recommendation: "RECHAZAR"
+    },
+    {
+        id: "SN-5003",
+        categoria: "Colusión",
+        categoryBadge: "badge-orange",
+        userId: "27-55443322-9",
+        usuarioNombre: "Sergio Aguero",
+        monto: 380000,
+        fechaReporte: "2026-05-02",
+        tipoCobertura: "Terceros",
+        proveedorCuit: "30-71458922-9",
+        proveedorNombre: "Taller Warnes Premium",
+        scoreRiesgo: 0.82,
+        rules: ["BR-02", "BR-05"],
+        estado: "PENDIENTE",
+        engineVerdict: "warning",
+        engineMsg: "ALERTA MODERADA · Integra el anillo de colusión BR-02. Monto menor al grupo, pero patrón geográfico sospechoso (BR-05).",
+        verdictDetail: "Aunque el monto es el menor del clúster, el análisis geográfico (BR-05) muestra que el siniestro fue reportado desde la misma IP que SN-5001 (192.168.22.41 — Warnes 1240). Posible presentación coordinada desde el establecimiento del taller.",
+        graphType: "star",
+        recommendation: "RECHAZAR"
+    },
+    {
+        id: "SN-1001",
+        categoria: "Limpio",
+        categoryBadge: "badge-green",
+        userId: "20-11111111-1",
+        usuarioNombre: "Roberto Sedinho",
+        monto: 120000,
+        fechaReporte: "2026-05-01",
+        tipoCobertura: "Todo Riesgo",
+        proveedorCuit: "30-00000000-1",
+        proveedorNombre: "Taller Norte S.A.",
+        scoreRiesgo: 0.12,
+        rules: [],
+        estado: "PENDIENTE",
+        engineVerdict: "clean",
+        engineMsg: "SIN ALERTAS · Consultas Cypher BR-01 a BR-06 ejecutadas. No se encontraron patrones de riesgo en el grafo.",
+        verdictDetail: "El asegurado no registra antecedentes. El proveedor (Taller Norte S.A.) tiene 0 casos de riesgo en los últimos 365 días. El monto ($120.000) es consistente con el tipo de cobertura (Todo Riesgo, roce lateral). Ciclo cerrado: sin transferencias cruzadas detectadas.",
+        graphType: "clean",
+        recommendation: "APROBAR"
+    }
+];
+
+const auditHistory = [];
+let activeClaim = null;
+
+// =====================================================================
+// RULES ENGINE DATA
+// =====================================================================
+const rulesData = [
+    {
+        id: "BR-01",
+        nombre: "Umbral de Monto Crítico",
+        severidad: "ALTA",
+        severityBadge: "badge-red",
+        descripcion: "Todo siniestro cuyo monto supere el umbral configurado pasa automáticamente a estado AUDITORÍA OBLIGATORIA antes de cualquier liquidación.",
+        umbral: 1000000,
+        activa: true,
+        cypher: `MATCH (s:Siniestro {id: $siniestroId})
+WHERE s.monto > $umbral
+SET s.estado = 'EN_AUDITORIA'
+RETURN s.id AS caso, s.monto AS monto, 'BR-01' AS regla`
+    },
+    {
+        id: "BR-02",
+        nombre: "Alerta de Colusión Proveedor-Usuarios",
+        severidad: "ALTA",
+        severityBadge: "badge-red",
+        descripcion: "Si un proveedor (taller/clínica) comparte siniestros con más de 2 asegurados distintos en un período menor a 180 días, se activa score de riesgo crítico en todos los nodos relacionados.",
+        umbral: 2,
+        diasVentana: 180,
+        activa: true,
+        cypher: `MATCH (p:Proveedor)<-[:ASOCIADO_A]-(s:Siniestro)<-[:REPORTO]-(u:Usuario)
+WHERE s.fechaReporte > datetime() - duration('P180D')
+WITH p, count(DISTINCT u) AS freq
+WHERE freq > 2
+RETURN p.nombre AS proveedor, freq AS usuariosImplicados`
+    },
+    {
+        id: "BR-03",
+        nombre: "Detección de Ciclos de Transferencia (Anillo)",
+        severidad: "ALTA",
+        severityBadge: "badge-red",
+        descripcion: "Detecta si el asegurado participa en un ciclo cerrado de transferencias que regresan al origen (profundidad 2 a 5 saltos). Activa bloqueo preventivo de la billetera virtual.",
+        profundidadMin: 2,
+        profundidadMax: 5,
+        activa: true,
+        cypher: `MATCH (u:Usuario {id: $userId})
+MATCH path = (u)-[:TRANSFERENCIA*2..5]->(u)
+SET u.estadoBilletera = 'BLOQUEADA'
+RETURN path, length(path) AS extensionCiclo
+LIMIT 1`
+    },
+    {
+        id: "BR-04",
+        nombre: "Alta Frecuencia de Siniestros (Mismo Asegurado)",
+        severidad: "MEDIA",
+        severityBadge: "badge-yellow",
+        descripcion: "Si un mismo asegurado reporta más de N siniestros en los últimos M días, se incrementa su score de riesgo y se requiere auditoría manual.",
+        umbralSiniestros: 3,
+        diasVentana: 365,
+        activa: true,
+        cypher: `MATCH (u:Usuario {id: $userId})-[:REPORTO]->(s:Siniestro)
+WHERE s.fechaReporte > datetime() - duration('P365D')
+WITH u, count(s) AS freq
+WHERE freq > 3
+SET u.scoreRiesgo = u.scoreRiesgo + 0.3
+RETURN u.nombreCompleto, freq AS siniestrosEnPeriodo`
+    },
+    {
+        id: "BR-05",
+        nombre: "Coincidencia Geográfica / IP Duplicada",
+        severidad: "MEDIA",
+        severityBadge: "badge-yellow",
+        descripcion: "Detecta siniestros presentados desde la misma IP o ubicación GPS en un lapso corto pero por asegurados distintos. Indica posible presentación coordinada desde el proveedor.",
+        ventanaMinutos: 120,
+        activa: true,
+        cypher: `MATCH (s1:Siniestro)-[:ORIGINADO_DESDE]->(ip:IP)<-[:ORIGINADO_DESDE]-(s2:Siniestro)
+WHERE s1.id <> s2.id
+  AND abs(duration.between(s1.fechaReporte, s2.fechaReporte).minutes) < 120
+MATCH (s1)<-[:REPORTO]-(u1), (s2)<-[:REPORTO]-(u2)
+WHERE u1 <> u2
+RETURN ip.address, u1.nombreCompleto, u2.nombreCompleto, s1.id, s2.id`
+    },
+    {
+        id: "BR-06",
+        nombre: "Proveedor Sin Historial o con CUIT Inválido",
+        severidad: "BAJA",
+        severityBadge: "badge-blue",
+        descripcion: "Valida que el proveedor referenciado en el siniestro exista en el grafo con al menos 6 meses de historial activo y CUIT verificable contra la base AFIP.",
+        mesesHistorial: 6,
+        activa: true,
+        cypher: `MATCH (s:Siniestro {id: $siniestroId})-[:ASOCIADO_A]->(p:Proveedor)
+WHERE NOT EXISTS(p.cuitVerificado) OR p.cuitVerificado = false
+   OR p.fechaAlta > datetime() - duration('P6M')
+RETURN p.nombre AS proveedor, p.cuit, 'BR-06: Proveedor no verificado' AS alerta`
+    }
+];
+
+// =====================================================================
+// RENDER CLAIMS TABLE
+// =====================================================================
+function getRiskColor(score) {
+    if (score >= 0.8) return 'var(--red-light)';
+    if (score >= 0.5) return 'var(--yellow-light)';
+    return 'var(--green-light)';
+}
+
+function getEstadoBadge(estado) {
+    const map = {
+        'PENDIENTE': 'badge-yellow',
+        'EN_AUDITORIA': 'badge-blue',
+        'LIQUIDADO': 'badge-green',
+        'RECHAZADO_FRAUDE': 'badge-red',
+    };
+    return map[estado] || 'badge-gray';
+}
+
+function renderClaims() {
+    const body = document.getElementById('claimsBody');
+    body.innerHTML = claimsDataset.map(c => {
+        const estado = c.estado;
+        const resuelto = estado === 'LIQUIDADO' || estado === 'RECHAZADO_FRAUDE';
+        const riskColor = getRiskColor(c.scoreRiesgo);
+        const ruleTags = c.rules.map(r => `<span class="badge badge-blue" style="margin-right:2px; padding:1px 5px; font-size:9px;">${r}</span>`).join('');
+
+        return `<tr id="row-${c.id}">
+            <td class="td-mono" style="font-weight:700;">${c.id}</td>
+            <td><span class="badge ${c.categoryBadge}">${c.categoria}</span></td>
+            <td>
+                <div style="font-weight:600;">${c.usuarioNombre}</div>
+                <div style="font-size:10px; color: var(--text-muted); font-family: var(--mono);">${c.userId}</div>
+            </td>
+            <td class="td-mono" style="font-weight:700;">$${c.monto.toLocaleString('es-AR')}</td>
+            <td class="td-mono">${c.fechaReporte}</td>
+            <td>
+                <div>${c.proveedorNombre}</div>
+                <div style="font-size:10px; color: var(--text-muted); font-family: var(--mono);">${c.proveedorCuit}</div>
+            </td>
+            <td>
+                <div class="risk-bar-wrap">
+                    <div class="risk-bar-outer">
+                        <div class="risk-bar-inner" style="transform: scaleX(${c.scoreRiesgo}); background:${riskColor}; width: 100%;"></div>
+                    </div>
+                    <span style="font-family: var(--mono); font-size:10px; color:${riskColor}; min-width:30px;">${(c.scoreRiesgo*100).toFixed(0)}%</span>
+                </div>
+            </td>
+            <td>${ruleTags || '<span style="color:var(--text-dim); font-size:10px;">—</span>'}</td>
+            <td><span class="badge ${getEstadoBadge(estado)}" id="badge-${c.id}">${estado.replace('_', ' ')}</span></td>
+            <td>
+                <button class="btn btn-primary btn-sm" onclick="runAudit('${c.id}')" ${resuelto ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
+                    Auditar Neo4j
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+renderClaims();
+
+// =====================================================================
+// AUDIT DRAWER
+// =====================================================================
+function closeDrawer() {
+    document.getElementById('audit-drawer').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+}
+
+async function runAudit(claimId) {
+    const claim = claimsDataset.find(c => c.id === claimId);
+    activeClaim = claim;
+
+    const drawer = document.getElementById('audit-drawer');
+    const terminal = document.getElementById('neo-terminal');
+    const graphSvg = document.getElementById('graph-svg');
+
+    // Reset
+    document.getElementById('analyst-notes').value = '';
+    document.getElementById('analyst-notes').disabled = false;
+    document.getElementById('btn-approve').disabled = false;
+    document.getElementById('btn-reject').disabled = false;
+    document.getElementById('decision-result').classList.remove('show');
+    document.getElementById('decision-result').innerHTML = '';
+
+    // Open
+    drawer.classList.add('open');
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('drawer-title').innerText = `Análisis Neo4j — ${claim.id}`;
+    document.getElementById('drawer-subtitle').innerText = `${claim.usuarioNombre} · ${claim.tipoCobertura} · $${claim.monto.toLocaleString('es-AR')}`;
+
+    // Terminal animation
+    const ts = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    terminal.innerHTML = `<span class="t-comment">// [${ts}] Iniciando análisis relacional para ${claim.id}...</span>\n`;
+
+    await delay(350);
+    terminal.innerHTML += `<span class="t-query">MATCH (s:Siniestro {id: '${claim.id}'})\nOPTIONAL MATCH (s)&lt;-[:REPORTO]-(u:Usuario)\nOPTIONAL MATCH (s)-[:ASOCIADO_A]-&gt;(p:Proveedor)\nRETURN s, u, p, u.scoreRiesgo AS riesgoUsuario</span>\n`;
+
+    await delay(500);
+
+    if (claim.rules.includes('BR-01')) {
+        terminal.innerHTML += `<span class="t-warn">// BR-01: Verificando umbral de monto...</span>\n`;
+        await delay(300);
+        terminal.innerHTML += `<span class="t-danger">ALERTA — s.monto (${claim.monto.toLocaleString()}) > 1.000.000 → EN_AUDITORIA</span>\n`;
+    }
+
+    if (claim.rules.includes('BR-02')) {
+        terminal.innerHTML += `<span class="t-warn">// BR-02: Analizando colusión proveedor-usuarios (ventana 180d)...</span>\n`;
+        await delay(400);
+        terminal.innerHTML += `<span class="t-danger">MATCH p.cuit '${claim.proveedorCuit}' → frecuencia = 4 usuarios · SCORE CRÍTICO</span>\n`;
+    }
+
+    if (claim.rules.includes('BR-05')) {
+        terminal.innerHTML += `<span class="t-warn">// BR-05: Verificando coincidencia IP de origen...</span>\n`;
+        await delay(300);
+        terminal.innerHTML += `<span class="t-danger">IP 192.168.22.41 compartida con SN-5001 · Δt = 42min · ALERTA GEOGRÁFICA</span>\n`;
+    }
+
+    if (claim.rules.length === 0) {
+        terminal.innerHTML += `<span class="t-result">// Ejecutando BR-01 a BR-06... Sin patrones de riesgo detectados.</span>\n`;
+        await delay(400);
+        terminal.innerHTML += `<span class="t-result">RESULTADO: Grafo limpio · Recomendación: LIQUIDAR</span>\n`;
+    }
+
+    terminal.scrollTop = terminal.scrollHeight;
+
+    // Render Graph
+    renderGraph(claim);
+
+    // Verdict
+    const verdictEl = document.getElementById('engine-verdict');
+    verdictEl.className = `verdict-engine-result ${claim.engineVerdict}`;
+    verdictEl.innerText = claim.engineMsg;
+
+    const rulesEl = document.getElementById('verdict-rules');
+    rulesEl.innerHTML = claim.rules.map(r => `<span class="rule-tag">${r}</span>`).join('') || '<span style="font-size:11px;color:var(--text-muted)">Sin reglas disparadas</span>';
+
+    document.getElementById('verdict-detail').innerText = claim.verdictDetail;
+
+    // Decision info
+    const recColor = claim.recommendation === 'APROBAR' ? 'var(--green-light)' : 'var(--red-light)';
+    document.getElementById('decision-info').innerHTML = `
+        Motor recomienda: <strong style="color:${recColor}">${claim.recommendation}</strong>.<br>
+        Revise el grafo, el resultado del motor y las reglas disparadas. Ingrese su justificación y confirme la decisión. 
+        <em style="color:var(--yellow-light)">La resolución final es responsabilidad exclusiva del analista.</em>
+    `;
+}
+
+// =====================================================================
+// GRAPH SVG RENDERING
+// =====================================================================
+function renderGraph(claim) {
+    const svg = document.getElementById('graph-svg');
+    svg.innerHTML = '';
+
+    const W = 520, H = 220;
+    const style = getComputedStyle(document.documentElement);
+    const theme = {
+        blue: style.getPropertyValue('--blue-light').trim(),
+        green: style.getPropertyValue('--green-light').trim(),
+        red: style.getPropertyValue('--red-light').trim(),
+        yellow: style.getPropertyValue('--yellow-light').trim(),
+        dim: style.getPropertyValue('--text-dim').trim()
+    };
+
+    function circle(x, y, r, fill, label, sublabel = '') {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', r);
+        c.setAttribute('fill', fill); c.setAttribute('fill-opacity', '0.1');
+        c.setAttribute('stroke', fill); c.setAttribute('stroke-width', '2');
+        g.appendChild(c);
+
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', x); t.setAttribute('y', y + (sublabel ? -4 : 4));
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('fill', fill);
+        t.setAttribute('font-size', '10');
+        t.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        t.setAttribute('font-weight', '700');
+        t.textContent = label;
+        g.appendChild(t);
+
+        if (sublabel) {
+            const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t2.setAttribute('x', x); t2.setAttribute('y', y + 10);
+            t2.setAttribute('text-anchor', 'middle');
+            t2.setAttribute('fill', fill); t2.setAttribute('fill-opacity', '0.8');
+            t2.setAttribute('font-size', '8');
+            t2.setAttribute('font-family', 'IBM Plex Mono, monospace');
+            t2.textContent = sublabel;
+            g.appendChild(t2);
+        }
+
+        svg.appendChild(g);
+    }
+
+    function line(x1, y1, x2, y2, color, label = '') {
+        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+        l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+        l.setAttribute('stroke', color); l.setAttribute('stroke-width', '1.5');
+        l.setAttribute('stroke-dasharray', '4,4');
+        svg.appendChild(l);
+
+        if (label) {
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t.setAttribute('x', mx); t.setAttribute('y', my - 6);
+            t.setAttribute('text-anchor', 'middle');
+            t.setAttribute('fill', color); t.setAttribute('fill-opacity', '0.8');
+            t.setAttribute('font-size', '9');
+            t.setAttribute('font-family', 'IBM Plex Mono, monospace');
+            t.textContent = label;
+            svg.appendChild(t);
+        }
+    }
+
+    if (claim.graphType === 'linear') {
+        // Usuario → Siniestro → Proveedor
+        line(100, 110, 210, 110, theme.red, ':REPORTO');
+        line(310, 110, 420, 110, theme.red, ':ASOCIADO_A');
+        circle(70, 110, 38, theme.blue, ':Usuario', claim.usuarioNombre.split(' ')[0]);
+        circle(260, 110, 42, theme.red, ':Siniestro', claim.id);
+        circle(455, 110, 38, theme.green, ':Proveedor', claim.proveedorNombre.split(' ')[0]);
+
+        // Alert badge
+        const alert = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        alert.setAttribute('x', 260); alert.setAttribute('y', 185);
+        alert.setAttribute('text-anchor', 'middle');
+        alert.setAttribute('fill', theme.yellow); alert.setAttribute('font-size', '9');
+        alert.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        alert.textContent = `monto: $${claim.monto.toLocaleString()} · BR-01 DISPARADA`;
+        svg.appendChild(alert);
+    }
+
+    else if (claim.graphType === 'star') {
+        // Central provider with 4 user nodes
+        const CX = 260, CY = 110, R = 85;
+        const users = [
+            { name: 'C.Tevez', angle: -135 },
+            { name: 'L.Messi', angle: -45 },
+            { name: 'S.Aguero', angle: 45 },
+            { name: 'User_04', angle: 135 },
+        ];
+
+        users.forEach(u => {
+            const rad = u.angle * Math.PI / 180;
+            const ux = CX + R * Math.cos(rad);
+            const uy = CY + R * Math.sin(rad);
+            line(ux, uy, CX, CY, theme.red, ':REPORTO');
+            circle(ux, uy, 32, theme.blue, ':Usuario', u.name);
+        });
+
+        circle(CX, CY, 40, theme.red, ':Proveedor', 'Warnes Prem.');
+
+        const warn = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        warn.setAttribute('x', 260); warn.setAttribute('y', 210);
+        warn.setAttribute('text-anchor', 'middle');
+        warn.setAttribute('fill', theme.yellow); warn.setAttribute('font-size', '9');
+        warn.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        warn.textContent = 'BR-02 · ANILLO DE COLUSIÓN · 4 usuarios · 55 días';
+        svg.appendChild(warn);
+    }
+
+    else if (claim.graphType === 'clean') {
+        line(100, 110, 210, 110, theme.green, ':REPORTO');
+        line(310, 110, 420, 110, theme.green, ':ASOCIADO_A');
+        circle(70, 110, 38, theme.blue, ':Usuario', claim.usuarioNombre.split(' ')[0]);
+        circle(260, 110, 42, theme.green, ':Siniestro', claim.id);
+        circle(455, 110, 38, theme.green, ':Proveedor', 'Taller Norte');
+
+        const ok = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        ok.setAttribute('x', 260); ok.setAttribute('y', 185);
+        ok.setAttribute('text-anchor', 'middle');
+        ok.setAttribute('fill', theme.green); ok.setAttribute('font-size', '9');
+        ok.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        ok.textContent = 'Sin ciclos · Sin colusión · Sin alertas BR-01..BR-06';
+        svg.appendChild(ok);
+    }
+}
+
+// =====================================================================
+// ANALYST DECISION
+// =====================================================================
+function submitDecision(decision) {
+    const notes = document.getElementById('analyst-notes').value.trim();
+    if (!notes) {
+        document.getElementById('analyst-notes').focus();
+        document.getElementById('analyst-notes').style.borderColor = 'var(--red-light)';
+        setTimeout(() => document.getElementById('analyst-notes').style.borderColor = 'var(--border)', 2000);
+        return;
+    }
+
+    if (!activeClaim) return;
+
+    // Update claim state
+    activeClaim.estado = decision;
+    const badgeEl = document.getElementById(`badge-${activeClaim.id}`);
+    if (badgeEl) {
+        badgeEl.className = `badge ${decision === 'LIQUIDADO' ? 'badge-green' : 'badge-red'}`;
+        badgeEl.innerText = decision.replace('_', ' ');
+    }
+
+    // Save to history
+    const ts = new Date().toLocaleString('es-AR');
+    auditHistory.unshift({
+        id: activeClaim.id,
+        analyst: 'Luis Andreani',
+        ts,
+        decision,
+        notes,
+        claim: activeClaim
+    });
+
+    renderHistory();
+
+    // Show result
+    const resultEl = document.getElementById('decision-result');
+    const isApprove = decision === 'LIQUIDADO';
+    resultEl.className = `decision-result show`;
+    resultEl.style.background = isApprove ? 'rgba(35,134,54,0.1)' : 'rgba(218,54,51,0.1)';
+    resultEl.style.border = `1px solid ${isApprove ? 'var(--green)' : 'var(--red)'}`;
+    resultEl.style.color = isApprove ? 'var(--green-light)' : 'var(--red-light)';
+    resultEl.innerHTML = `
+        <strong>${isApprove ? '✓ Siniestro aprobado y en cola de liquidación.' : '✗ Siniestro rechazado por fraude. Expediente enviado a área legal.'}</strong><br>
+        <span style="font-size:10px; opacity:0.8; font-family: var(--mono);">Registrado: ${ts} · Analista: Luis Andreani</span>
+    `;
+
+    // Disable buttons
+    document.getElementById('btn-approve').disabled = true;
+    document.getElementById('btn-reject').disabled = true;
+    document.getElementById('analyst-notes').disabled = true;
+}
+
+// =====================================================================
+// HISTORY
+// =====================================================================
+function renderHistory() {
+    const container = document.getElementById('history-list');
+    if (auditHistory.length === 0) return;
+
+    container.innerHTML = auditHistory.map(h => {
+        const isApprove = h.decision === 'LIQUIDADO';
+        const borderColor = isApprove ? 'rgba(56,139,253,0.3)' : 'rgba(248,81,73,0.3)';
+        return `<div class="audit-log-item" style="border-color: ${borderColor}">
+            <div>
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <span class="audit-log-id">${h.id}</span>
+                    <span class="badge ${isApprove ? 'badge-green' : 'badge-red'}">${h.decision.replace('_', ' ')}</span>
+                </div>
+                <div class="audit-log-analyst">${h.claim.usuarioNombre} · $${h.claim.monto.toLocaleString()} · ${h.claim.proveedorNombre}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:10px; color:var(--text-muted); font-family: var(--mono);">${h.ts}</div>
+                <div style="font-size:10px; color:var(--text-muted);">${h.analyst}</div>
+            </div>
+            <div class="audit-log-justif">"${h.notes}"</div>
+        </div>`;
+    }).join('');
+}
+
+// =====================================================================
+// RULES ENGINE RENDER
+// =====================================================================
+function renderRules() {
+    const container = document.getElementById('rules-container');
+    container.innerHTML = rulesData.map((rule, i) => `
+        <div class="rule-card">
+            <button class="rule-card-header" onclick="toggleRule(${i})">
+                <div style="display:flex; align-items:center;">
+                    <span class="rule-id">${rule.id}</span>
+                    <span class="rule-name">${rule.nombre}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="badge ${rule.severityBadge} rule-severity">${rule.severidad}</span>
+                    <span style="font-size:11px; color: ${rule.activa ? 'var(--green-light)' : 'var(--text-muted)'}; font-family: var(--mono);">
+                        ${rule.activa ? '● ACTIVA' : '○ INACTIVA'}
+                    </span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted)"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </button>
+            <div class="rule-body" id="rule-body-${i}">
+                <div class="rule-field">
+                    <label>Descripción</label>
+                    <textarea style="min-height:44px;">${rule.descripcion}</textarea>
+                </div>
+                ${rule.umbral !== undefined ? `
+                <div class="rule-field">
+                    <label>Umbral / Valor de Corte (ARS)</label>
+                    <input type="number" value="${rule.umbral}" />
+                </div>` : ''}
+                ${rule.diasVentana !== undefined ? `
+                <div class="rule-field">
+                    <label>Ventana Temporal (días)</label>
+                    <input type="number" value="${rule.diasVentana}" />
+                </div>` : ''}
+                ${rule.umbralSiniestros !== undefined ? `
+                <div class="rule-field">
+                    <label>Cantidad Máxima de Siniestros</label>
+                    <input type="number" value="${rule.umbralSiniestros}" />
+                </div>` : ''}
+                ${rule.ventanaMinutos !== undefined ? `
+                <div class="rule-field">
+                    <label>Ventana de Coincidencia IP (minutos)</label>
+                    <input type="number" value="${rule.ventanaMinutos}" />
+                </div>` : ''}
+                <div class="rule-field">
+                    <label>Consulta Cypher generada</label>
+                    <div class="cypher-block">${rule.cypher}</div>
+                </div>
+                <div class="rule-actions">
+                    <button class="btn btn-primary btn-sm" onclick="alert('Cambios guardados para ${rule.id}')">Guardar Cambios</button>
+                    <button class="btn btn-ghost btn-sm" onclick="toggleRuleStatus(${i})">${rule.activa ? 'Desactivar Regla' : 'Activar Regla'}</button>
+                    <button class="btn btn-ghost btn-sm" style="color:var(--red-light); border-color:var(--red)" onclick="alert('Simular BR en sandbox...')">Simular en Sandbox</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function toggleRule(i) {
+    const body = document.getElementById(`rule-body-${i}`);
+    body.classList.toggle('open');
+}
+
+function toggleRuleStatus(i) {
+    rulesData[i].activa = !rulesData[i].activa;
+    renderRules();
+}
+
+renderRules();
+
+// =====================================================================
+// NAVIGATION
+// =====================================================================
+function switchView(viewId, navElement) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+    navElement.classList.add('active');
+    document.getElementById(viewId).classList.add('active');
+    document.getElementById('view-title').innerText = navElement.querySelector('span').innerText.trim();
+}
+
+// =====================================================================
+// CHARTS (Using CSS variables)
+// =====================================================================
+const style = getComputedStyle(document.documentElement);
+const colors = {
+    red: style.getPropertyValue('--red-light').trim(),
+    orange: style.getPropertyValue('--orange-light').trim(),
+    green: style.getPropertyValue('--green-light').trim(),
+    muted: style.getPropertyValue('--text-muted').trim(),
+    border: style.getPropertyValue('--border').trim()
+};
+
+const ctx = document.getElementById('evolutionChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: ['S1-May', 'S2-May', 'S3-May', 'S4-May', 'S1-Jun', 'S2-Jun'],
+        datasets: [
+            {
+                label: 'Fraude Duro',
+                data: [2, 5, 3, 8, 4, 3],
+                borderColor: colors.red,
+                backgroundColor: colors.red + '12',
+                fill: true, tension: 0.3, pointRadius: 3
+            },
+            {
+                label: 'Colusión',
+                data: [1, 3, 6, 4, 7, 5],
+                borderColor: colors.orange,
+                backgroundColor: colors.orange + '12',
+                fill: true, tension: 0.3, pointRadius: 3
+            },
+            {
+                label: 'Limpio',
+                data: [12, 18, 14, 22, 19, 16],
+                borderColor: colors.green,
+                backgroundColor: colors.green + '08',
+                fill: true, tension: 0.3, pointRadius: 3
+            }
+        ]
+    },
+    options: {
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: true, labels: { color: colors.muted, font: { size: 10 } } }
+        },
+        scales: {
+            x: { ticks: { color: colors.muted, font: { size: 9 } }, grid: { color: colors.border } },
+            y: { ticks: { color: colors.muted, font: { size: 9 } }, grid: { color: colors.border } }
+        }
+    }
+});
+
+const typeCtx = document.getElementById('typeChart').getContext('2d');
+new Chart(typeCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Fraude Duro', 'Colusión', 'Fraude Blando', 'Limpio'],
+        datasets: [{
+            data: [1, 3, 0, 1],
+            backgroundColor: [colors.red + 'b3', colors.orange + 'b3', colors.orange + '80', colors.green + 'b3'],
+            borderColor: [colors.red, colors.orange, colors.orange, colors.green],
+            borderWidth: 1.5
+        }]
+    },
+    options: {
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom', labels: { color: colors.muted, font: { size: 9 }, padding: 10 } }
+        }
+    }
+});
+
+// =====================================================================
+// UTILS
+// =====================================================================
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>

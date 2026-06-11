@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risk Management Console | Neo4j Engine</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg: #0d1117;
+            --bg-card: #161b22;
+            --bg-card-2: #1c2128;
+            --border: #30363d;
+            --border-bright: #444c56;
+            --text: #e6edf3;
+            --text-muted: #7d8590;
+            --text-dim: #484f58;
+            --blue: #1f6feb;
+            --blue-light: #388bfd;
+            --green: #238636;
+            --green-light: #3fb950;
+            --red: #da3633;
+            --red-light: #f85149;
+            --yellow: #9e6a03;
+            --yellow-light: #d29922;
+            --orange: #bd561d;
+            --orange-light: #f0883e;
+            --purple: #6e40c9;
+            --sidebar-w: 220px;
+            --drawer-w: 520px;
+            --mono: 'IBM Plex Mono', monospace;
+            --sans: 'IBM Plex Sans', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 13px;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ======================== SIDEBAR ======================== */
+        aside {
+            width: var(--sidebar-w);
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .brand-header {
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-icon {
+            width: 28px; height: 28px;
+            background: var(--blue);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .brand-text { font-size: 13px; font-weight: 700; color: var(--text); }
+        .brand-sub { font-size: 10px; color: var(--text-muted); font-family: var(--mono); margin-top: 1px; }
+
+        .nav-section-label {
+            padding: 16px 16px 6px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            font-weight: 600;
+        }
+
+        .nav-item {
+            padding: 7px 16px;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            border-left: 2px solid transparent;
+            transition: all 0.1s;
+        }
+
+        .nav-item:hover { background: var(--bg-card-2); color: var(--text); }
+        .nav-item.active { background: rgba(31,111,235,0.1); color: var(--blue-light); border-left-color: var(--blue-light); }
+
+        .nav-item svg { opacity: 0.7; flex-shrink: 0; }
+        .nav-item.active svg { opacity: 1; }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 12px 16px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .avatar {
+            width: 28px; height: 28px;
+            background: var(--purple);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; color: white;
+        }
+
+        .avatar-info { font-size: 11px; }
+        .avatar-name { font-weight: 600; color: var(--text); }
+        .avatar-role { color: var(--text-muted); }
+
+        /* ======================== MAIN ======================== */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-bar {
+            height: 44px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            flex-shrink: 0;
+        }
+
+        .top-bar-left { display: flex; align-items: center; gap: 8px; }
+        .breadcrumb { font-size: 12px; color: var(--text-muted); }
+        .breadcrumb span { color: var(--text); font-weight: 600; }
+
+        .top-bar-right { display: flex; align-items: center; gap: 10px; }
+
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green-light);
+            box-shadow: 0 0 6px var(--green-light);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-label { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+
+        .view-container { padding: 20px; overflow-y: auto; flex: 1; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.2s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ======================== CARDS ======================== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .card-body { padding: 14px; }
+
+        /* ======================== KPI GRID ======================== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px;
+        }
+
+        .kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+        .kpi-value { font-size: 22px; font-weight: 700; font-family: var(--mono); }
+        .kpi-sub { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+        .kpi-red { color: var(--red-light); }
+        .kpi-green { color: var(--green-light); }
+        .kpi-yellow { color: var(--yellow-light); }
+        .kpi-blue { color: var(--blue-light); }
+        .kpi-orange { color: var(--orange-light); }
+
+        .kpi-trend {
+            font-size: 10px;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        }
+
+        /* ======================== GRID LAYOUT ======================== */
+        .two-col { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+
+        /* ======================== TABLE ======================== */
+        .table-wrapper {
+            overflow-y: auto;
+            max-height: calc(100vh - 220px);
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+
+        th {
+            position: sticky; top: 0; z-index: 5;
+            text-align: left;
+            padding: 8px 12px;
+            background: var(--bg-card-2);
+            color: var(--text-muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .td-mono { font-family: var(--mono); font-size: 11px; }
+
+        /* ======================== BADGES ======================== */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 7px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-red { background: rgba(218,54,51,0.15); color: var(--red-light); border: 1px solid rgba(218,54,51,0.3); }
+        .badge-green { background: rgba(35,134,54,0.15); color: var(--green-light); border: 1px solid rgba(35,134,54,0.3); }
+        .badge-yellow { background: rgba(158,106,3,0.2); color: var(--yellow-light); border: 1px solid rgba(210,153,34,0.3); }
+        .badge-blue { background: rgba(31,111,235,0.15); color: var(--blue-light); border: 1px solid rgba(56,139,253,0.3); }
+        .badge-orange { background: rgba(189,86,29,0.15); color: var(--orange-light); border: 1px solid rgba(240,136,62,0.3); }
+        .badge-gray { background: rgba(255,255,255,0.06); color: var(--text-muted); border: 1px solid var(--border); }
+
+        /* ======================== BUTTONS ======================== */
+        .btn {
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid;
+            transition: all 0.1s;
+            font-family: var(--sans);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background: var(--blue);
+            color: white;
+            border-color: var(--blue-light);
+        }
+        .btn-primary:hover { background: var(--blue-light); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
+        .btn-ghost:hover { background: var(--bg-card-2); color: var(--text); }
+
+        .btn-success {
+            background: rgba(35,134,54,0.2);
+            color: var(--green-light);
+            border-color: var(--green);
+        }
+        .btn-success:hover { background: rgba(35,134,54,0.35); }
+
+        .btn-danger {
+            background: rgba(218,54,51,0.2);
+            color: var(--red-light);
+            border-color: var(--red);
+        }
+        .btn-danger:hover { background: rgba(218,54,51,0.35); }
+
+        .btn-sm { padding: 3px 8px; font-size: 10px; }
+
+        /* ======================== DRAWER ======================== */
+        #audit-drawer {
+            position: fixed;
+            right: -540px;
+            top: 0;
+            width: var(--drawer-w);
+            height: 100vh;
+            background: var(--bg-card);
+            border-left: 1px solid var(--border);
+            z-index: 200;
+            transition: right 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+        }
+
+        #audit-drawer.open { right: 0; }
+
+        .drawer-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .drawer-header-info h3 { font-size: 14px; font-weight: 700; }
+        .drawer-header-info p { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
+
+        .drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ======================== TERMINAL ======================== */
+        .terminal-zone {
+            background: #010409;
+            border-bottom: 1px solid var(--border);
+            padding: 14px 16px;
+            font-family: var(--mono);
+            font-size: 11px;
+            line-height: 1.7;
+            height: 170px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .terminal-zone .t-comment { color: var(--text-dim); }
+        .terminal-zone .t-query { color: #79c0ff; }
+        .terminal-zone .t-result { color: var(--green-light); }
+        .terminal-zone .t-warn { color: var(--yellow-light); }
+        .terminal-zone .t-danger { color: var(--red-light); }
+        .terminal-zone .t-ts { color: var(--text-dim); }
+
+        /* ======================== GRAPH ZONE ======================== */
+        .graph-zone {
+            height: 220px;
+            background: #010409;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .graph-label {
+            position: absolute;
+            top: 8px; left: 12px;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-dim);
+            font-family: var(--mono);
+        }
+
+        svg.graph-svg {
+            width: 100%; height: 100%;
+        }
+
+        /* ======================== VERDICT PANEL ======================== */
+        .verdict-section {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .verdict-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; margin-bottom: 10px; }
+
+        .verdict-engine-result {
+            padding: 10px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 12px;
+            border-left: 3px solid;
+            font-family: var(--mono);
+        }
+
+        .verdict-engine-result.danger {
+            background: rgba(218,54,51,0.1);
+            border-color: var(--red-light);
+            color: var(--red-light);
+        }
+
+        .verdict-engine-result.warning {
+            background: rgba(158,106,3,0.15);
+            border-color: var(--yellow-light);
+            color: var(--yellow-light);
+        }
+
+        .verdict-engine-result.clean {
+            background: rgba(35,134,54,0.1);
+            border-color: var(--green-light);
+            color: var(--green-light);
+        }
+
+        .verdict-rule-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+
+        .rule-tag {
+            padding: 3px 10px;
+            background: rgba(31,111,235,0.1);
+            border: 1px solid rgba(56,139,253,0.25);
+            border-radius: 3px;
+            font-size: 10px;
+            color: var(--blue-light);
+            font-family: var(--mono);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .rule-tag:hover {
+            background: var(--blue);
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        /* MODAL REGLAS */
+        #rule-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-bright);
+            border-radius: 8px;
+            z-index: 300;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            padding: 0;
+            animation: modalFadeIn 0.2s ease;
+        }
+        @keyframes modalFadeIn { from { opacity: 0; transform: translate(-50%, -45%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
+        .modal-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-body { padding: 16px; }
+        .modal-rule-id { font-family: var(--mono); color: var(--blue-light); font-weight: 700; margin-bottom: 8px; display: block; }
+        .modal-rule-desc { font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+        .modal-data-box {
+            background: #010409;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px;
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--green-light);
+            white-space: pre-wrap;
+        }
+
+        /* ======================== ANALYST DECISION ======================== */
+        .analyst-section {
+            padding: 16px 18px;
+            flex: 1;
+        }
+
+        .analyst-header { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+
+        .decision-info {
+            font-size: 11px;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        textarea.justification {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 10px;
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.6;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        textarea.justification:focus { border-color: var(--blue-light); }
+        textarea.justification::placeholder { color: var(--text-dim); }
+
+        .decision-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .decision-result {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .decision-result.show { display: block; }
+
+        /* ======================== AUDIT LOG (HISTORY) ======================== */
+        .audit-log-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .audit-log-item {
+            padding: 10px 12px;
+            background: var(--bg-card-2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 4px;
+        }
+
+        .audit-log-id { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+        .audit-log-analyst { font-size: 11px; color: var(--text-muted); }
+        .audit-log-justif { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-style: italic; grid-column: 1/-1; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 6px; line-height: 1.5; }
+
+        /* ======================== RULES ENGINE ======================== */
+        .rule-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+
+        .rule-card-header {
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .rule-card-header:hover { background: var(--bg-card-2); }
+
+        .rule-id { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--blue-light); }
+        .rule-name { font-size: 13px; font-weight: 600; margin-left: 10px; }
+        .rule-severity { }
+
+        .rule-body {
+            padding: 0 14px 14px;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+
+        .rule-body.open { display: block; }
+
+        .rule-field { margin-top: 10px; }
+        .rule-field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; margin-bottom: 5px; }
+        .rule-field input, .rule-field select, .rule-field textarea {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 7px 10px;
+            outline: none;
+        }
+        .rule-field input:focus, .rule-field select:focus { border-color: var(--blue-light); }
+        .rule-field textarea { resize: vertical; min-height: 50px; }
+
+        .rule-actions { display: flex; gap: 6px; margin-top: 12px; }
+
+        .cypher-block {
+            background: #010409;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px 12px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: #79c0ff;
+            line-height: 1.7;
+            white-space: pre;
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        .rules-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+        /* ======================== CLOSE BTN ======================== */
+        .close-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 4px;
+            width: 26px; height: 26px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            transition: all 0.1s;
+        }
+        .close-btn:hover { background: var(--bg-card-2); color: var(--text); }
+
+        /* ======================== OVERLAY ======================== */
+        #overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 190;
+        }
+        #overlay.show { display: block; }
+
+        /* ======================== SCROLLBAR ======================== */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 10px; }
+
+        /* ======================== CHART CONTAINER ======================== */
+        .chart-container { height: 200px; }
+
+        /* ======================== RISK SCORE BAR ======================== */
+        .risk-bar-wrap { display: flex; align-items: center; gap: 8px; }
+        .risk-bar-outer { flex: 1; height: 5px; background: var(--bg-card-2); border-radius: 3px; overflow: hidden; }
+        .risk-bar-inner { height: 100%; border-radius: 3px; }
+
+        /* ======================== MINI STAT ======================== */
+        .mini-stat { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+        .mini-stat:last-child { border-bottom: none; }
+        .mini-stat-label { color: var(--text-muted); }
+        .mini-stat-val { font-weight: 600; font-family: var(--mono); }
+
+        .section-mb { margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+
+<!-- OVERLAY -->
+<div id="overlay" onclick="closeDrawer()"></div>
+
+<!-- DRAWER DE AUDITORÍA -->
+<div id="audit-drawer">
+    <div class="drawer-header">
+        <div class="drawer-header-info">
+            <h3 id="drawer-title">Análisis Relacional Neo4j</h3>
+            <p id="drawer-subtitle">— sin caso activo —</p>
+        </div>
+        <button class="close-btn" onclick="closeDrawer()">×</button>
+    </div>
+    <div class="drawer-body">
+        <!-- TERMINAL CYPHER -->
+        <div class="terminal-zone" id="neo-terminal">
+            <span class="t-comment">// Motor de análisis de grafos listo. Seleccione un caso para auditar.</span>
+        </div>
+
+        <!-- GRAFO SVG -->
+        <div class="graph-zone">
+            <span class="graph-label">Visualización de Relaciones Neo4j</span>
+            <svg class="graph-svg" id="graph-svg" viewBox="0 0 520 220" xmlns="http://www.w3.org/2000/svg">
+                <text x="260" y="115" text-anchor="middle" fill="#484f58" font-size="11" font-family="IBM Plex Mono, monospace">
+                    Ejecute una auditoría para ver el grafo relacional
+                </text>
+            </svg>
+        </div>
+
+        <!-- VEREDICTO DEL MOTOR -->
+        <div class="verdict-section">
+            <div class="verdict-header">⬡ Resultado del Motor Antifraude</div>
+            <div class="verdict-engine-result clean" id="engine-verdict">
+                Esperando ejecución de consultas Cypher...
+            </div>
+            <div class="verdict-rule-tags" id="verdict-rules"></div>
+            <div id="verdict-detail" style="font-size: 11px; color: var(--text-muted); line-height: 1.6;"></div>
+        </div>
+
+        <!-- PANEL DE DECISIÓN DEL ANALISTA -->
+        <div class="analyst-section">
+            <div class="analyst-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Decisión Final del Analista
+            </div>
+
+            <div class="decision-info" id="decision-info">
+                Seleccione un caso de la cola para habilitar la toma de decisión. <strong>El sistema recomienda una acción, pero la resolución final es responsabilidad del analista.</strong>
+            </div>
+
+            <div>
+                <label style="display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); font-weight:600; margin-bottom:5px;">Justificación del Analista <span style="color:var(--red-light)">*</span></label>
+                <textarea class="justification" id="analyst-notes" placeholder="Documente aquí el razonamiento detrás de la decisión. Esta nota queda registrada en el historial de auditoría..." disabled></textarea>
+            </div>
+
+            <div class="decision-buttons" id="decision-buttons">
+                <button class="btn btn-success" id="btn-approve" onclick="submitDecision('LIQUIDADO')" disabled>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aprobar y Liquidar
+                </button>
+                <button class="btn btn-danger" id="btn-reject" onclick="submitDecision('RECHAZADO_FRAUDE')" disabled>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Rechazar por Fraude
+                </button>
+            </div>
+
+            <div class="decision-result" id="decision-result"></div>
+        </div>
+    </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside>
+    <div class="brand-header">
+        <div class="brand-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+            <div class="brand-text">AntiFraud Console</div>
+            <div class="brand-sub">neo4j engine v3.4</div>
+        </div>
+    </div>
+
+    <nav>
+        <div class="nav-section-label">Análisis</div>
+        <div class="nav-item active" onclick="switchView('view-dashboard', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Dashboard
+        </div>
+        <div class="nav-item" onclick="switchView('view-investigation', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Centro de Investigación
+        </div>
+        <div class="nav-item" onclick="switchView('view-history', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Historial de Auditoría
+        </div>
+
+        <div class="nav-section-label">Configuración</div>
+        <div class="nav-item" onclick="switchView('view-rules', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Motor de Reglas
+        </div>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="avatar">LA</div>
+        <div class="avatar-info">
+            <div class="avatar-name">Luis Andreani</div>
+            <div class="avatar-role">Auditor Senior</div>
+        </div>
+    </div>
+</aside>
+
+<!-- MAIN -->
+<main>
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <div class="breadcrumb">AntiFraud Console / <span id="view-title">Dashboard</span></div>
+        </div>
+        <div class="top-bar-right">
+            <div class="status-dot"></div>
+            <span class="status-label" id="connection-status">Neo4j CONECTADO · Lote 2026-06</span>
+        </div>
+    </div>
+
+    <div class="view-container">
+
+        <!-- ========== DASHBOARD ========== -->
+        <section id="view-dashboard" class="view-section active">
+            
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Fondos Retenidos</div>
+                    <div class="kpi-value kpi-red" id="kpi-retenidos">$0.00M</div>
+                    <div class="kpi-sub" id="kpi-retenidos-sub">0 casos en auditoría activa</div>
+                    <div class="kpi-trend" style="color: var(--red-light);">↑ +16% vs mes anterior</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Fondos Liquidados</div>
+                    <div class="kpi-value kpi-green" id="kpi-liquidados">$0.00M</div>
+                    <div class="kpi-sub" id="kpi-liquidados-sub">0 siniestros validados</div>
+                    <div class="kpi-trend" style="color: var(--green-light);">↑ +4% vs mes anterior</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Anomalías Detectadas</div>
+                    <div class="kpi-value kpi-yellow" id="kpi-anomalias">0</div>
+                    <div class="kpi-sub" id="kpi-anomalias-sub">Motor ejecutado -- veces</div>
+                    <div class="kpi-trend" style="color: var(--text-muted);">Tasa de detección: --%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Casos Pendientes</div>
+                    <div class="kpi-value kpi-orange" id="kpi-pendientes">0</div>
+                    <div class="kpi-sub">Requieren decisión analista</div>
+                    <div class="kpi-trend" style="color: var(--yellow-light);">↑ 2 nuevos hoy</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Tasa de Fraude</div>
+                    <div class="kpi-value kpi-blue" id="kpi-tasa">0.0%</div>
+                    <div class="kpi-sub">Sobre cartera total</div>
+                    <div class="kpi-trend" style="color: var(--green-light);">↓ Benchmark: 5.1%</div>
+                </div>
+            </div>
+
+            <div class="two-col section-mb">
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Volumen de Riesgo por Semana (Mayo – Junio 2026)</span>
+                        <span class="badge badge-gray">Línea temporal</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="evolutionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">Distribución por Tipo de Fraude</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 200px; display: flex; align-items: center; justify-content: center;">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="three-col">
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Top Proveedores en Alerta</span></div>
+                    <div class="card-body" style="padding: 10px 14px;" id="top-providers-container">
+                        <!-- Inyección vía API -->
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Reglas Activadas Hoy</span></div>
+                    <div class="card-body" style="padding: 10px 14px;" id="rules-today-container">
+                        <!-- Inyección vía API -->
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><span class="card-title">Últimas Resoluciones</span></div>
+                    <div class="card-body" style="padding: 10px 14px;" id="latest-resolutions-container">
+                        <!-- Inyección vía API -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== CENTRO DE INVESTIGACIÓN ========== -->
+        <section id="view-investigation" class="view-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <h2 style="font-size: 15px; font-weight: 700;">Cola de Auditoría Relacional</h2>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Gestione y filtre los siniestros pendientes de análisis.</p>
+                </div>
+                <div class="badge badge-yellow" id="pending-claims-badge">-- casos pendientes</div>
+            </div>
+
+            <!-- FILTROS -->
+            <div class="card" style="margin-bottom: 16px; padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; background: var(--bg-card-2);">
+                <div class="rule-field" style="margin-top:0">
+                    <label>Fecha Desde</label>
+                    <input type="date" id="filter-date-start" onchange="applyFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Monto Mín.</label>
+                    <input type="number" id="filter-amount-min" placeholder="0" oninput="applyFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Monto Máx.</label>
+                    <input type="number" id="filter-amount-max" placeholder="Max" oninput="applyFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Riesgo</label>
+                    <select id="filter-risk" onchange="applyFilters()">
+                        <option value="all">Todos</option>
+                        <option value="high">Alto (>80%)</option>
+                        <option value="medium">Medio (50-80%)</option>
+                        <option value="low">Bajo (<50%)</option>
+                    </select>
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Taller</label>
+                    <input type="text" id="filter-provider" placeholder="Nombre taller..." oninput="applyFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Asegurado</label>
+                    <input type="text" id="filter-user" placeholder="Nombre o DNI..." oninput="applyFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Estado</label>
+                    <select id="filter-status" onchange="applyFilters()">
+                        <option value="all">Todos</option>
+                        <option value="PENDIENTE">Pendiente</option>
+                        <option value="EN_AUDITORIA">En Auditoría</option>
+                        <option value="LIQUIDADO">Liquidado</option>
+                        <option value="RECHAZADO_FRAUDE">Rechazado</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <div class="table-wrapper" style="max-height: calc(100vh - 280px);">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th style="width: 110px;">Tipo de Alerta</th>
+                                <th>Asegurado (DNI)</th>
+                                <th style="width: 110px;">Monto Reclamado</th>
+                                <th style="width: 100px;">Fecha</th>
+                                <th>Proveedor (Taller)</th>
+                                <th style="width: 90px;">Score Riesgo</th>
+                                <th style="width: 110px;">Estado</th>
+                                <th style="width: 110px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="claimsBody">
+                            <tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">Cargando datos desde Neo4j Engine...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========== HISTORIAL ========== -->
+        <section id="view-history" class="view-section">
+            <div style="margin-bottom: 14px;">
+                <h2 style="font-size: 15px; font-weight: 700;">Historial de Auditoría</h2>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Decisiones tomadas por analistas. Todas las acciones quedan trazadas con su justificación.</p>
+            </div>
+
+            <!-- FILTROS HISTORIAL -->
+            <div class="card" style="margin-bottom: 16px; padding: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; background: var(--bg-card-2);">
+                <div class="rule-field" style="margin-top:0">
+                    <label>Fecha Desde</label>
+                    <input type="date" id="hist-filter-date-start" onchange="applyHistoryFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Monto Mín.</label>
+                    <input type="number" id="hist-filter-amount-min" placeholder="0" oninput="applyHistoryFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Asegurado</label>
+                    <input type="text" id="hist-filter-user" placeholder="Nombre o DNI..." oninput="applyHistoryFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Taller</label>
+                    <input type="text" id="hist-filter-provider" placeholder="Nombre taller..." oninput="applyHistoryFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Auditor</label>
+                    <input type="text" id="hist-filter-analyst" placeholder="Nombre auditor..." oninput="applyHistoryFilters()">
+                </div>
+                <div class="rule-field" style="margin-top:0">
+                    <label>Decisión</label>
+                    <select id="hist-filter-status" onchange="applyHistoryFilters()">
+                        <option value="all">Todas</option>
+                        <option value="LIQUIDADO">Liquidado</option>
+                        <option value="RECHAZADO_FRAUDE">Rechazado</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="history-list">
+                <!-- Inyección vía API -->
+            </div>
+        </section>
+
+        <!-- ========== MOTOR DE REGLAS ========== -->
+        <section id="view-rules" class="view-section">
+            <div class="rules-topbar">
+                <div>
+                    <h2 style="font-size: 15px; font-weight: 700;">Motor de Reglas Antifraude</h2>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Defina, ajuste y active las reglas de negocio que dispara el motor Neo4j. Haga clic en una regla para expandir su configuración.</p>
+                </div>
+                <button class="btn btn-primary" onclick="alert('Funcionalidad: crear nueva regla BR personalizada')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Nueva Regla
+                </button>
+            </div>
+
+            <div id="rules-container"></div>
+        </section>
+
+    </div>
+</main>
+
+<!-- MODAL DE DETALLE DE REGLA -->
+<div id="rule-modal">
+    <div class="modal-header">
+        <h4 style="font-size: 13px; font-weight: 700;">Detalle de Validación Neo4j</h4>
+        <button class="close-btn" onclick="closeRuleModal()">×</button>
+    </div>
+    <div class="modal-body">
+        <span class="modal-rule-id" id="m-rule-id">BR-00</span>
+        <div class="modal-rule-desc" id="m-rule-desc">Descripción de la regla...</div>
+        <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; font-weight: 600;">Datos detectados en el grafo:</div>
+        <div class="modal-data-box" id="m-rule-data">Query results...</div>
+    </div>
+</div>
+
+<script>
+// =====================================================================
+// CONTEXTO DE API & VARIABLES GLOBALES
+// =====================================================================
+const API_BASE = '/api'; 
+let activeClaim = null;
+let lastAuditData = null; // Almacenar datos de la última auditoría
+let cachedClaims = [];
+let cachedHistory = []; // Cache para el historial
+// ... rest of variables
+let cachedRules = [];
+let evolutionChartInstance = null;
+let typeChartInstance = null;
+
+// =====================================================================
+// INICIALIZACIÓN DE LA APLICACIÓN
+// =====================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+});
+
+function initApp() {
+    loadDashboardStats();
+    loadChartsData();
+    loadClaimsQueue();
+    loadAuditHistory();
+    loadRulesEngine();
+}
+
+// =====================================================================
+// CORE DE PETICIONES HTTP (FETCH)
+// =====================================================================
+async function loadDashboardStats() {
+    try {
+        const res = await fetch(`${API_BASE}/dashboard-stats`);
+        if (!res.ok) throw new Error('Error al obtener estadísticas del dashboard');
+        const data = await res.json();
+
+        // Actualizar tarjetas de KPI superiores
+        document.getElementById('kpi-retenidos').innerText = data.kpis.retenidos;
+        document.getElementById('kpi-retenidos-sub').innerText = data.kpis.retenidosSub;
+        document.getElementById('kpi-liquidados').innerText = data.kpis.liquidados;
+        document.getElementById('kpi-liquidados-sub').innerText = data.kpis.liquidadosSub;
+        document.getElementById('kpi-anomalias').innerText = data.kpis.anomalias;
+        document.getElementById('kpi-anomalias-sub').innerText = data.kpis.anomaliasSub;
+        document.getElementById('kpi-pendientes').innerText = data.kpis.pendientes;
+        document.getElementById('kpi-tasa').innerText = data.kpis.tasaFraude;
+
+        // Renderizar paneles de resumen inferiores
+        document.getElementById('top-providers-container').innerHTML = data.topProviders.map(p => `
+            <div class="mini-stat">
+                <span class="mini-stat-label">${p.nombre}</span>
+                <span class="mini-stat-val kpi-red">${p.casos} ${p.casos === 1 ? 'caso' : 'casos'}</span>
+            </div>
+        `).join('') || '<div style="color:var(--text-dim);">Sin alertas</div>';
+
+        document.getElementById('rules-today-container').innerHTML = data.rulesToday.map(r => `
+            <div class="mini-stat">
+                <span class="mini-stat-label">${r.id} (${r.nombre})</span>
+                <span class="mini-stat-val">${r.ejecuciones}</span>
+            </div>
+        `).join('') || '<div style="color:var(--text-dim);">0 ejecuciones</div>';
+
+        document.getElementById('latest-resolutions-container').innerHTML = data.latestResolutions.map(r => `
+            <div class="mini-stat">
+                <span class="mini-stat-label">${r.id} (${r.resultado})</span>
+                <span class="mini-stat-val kpi-${r.resultado === 'Aprobado' ? 'green' : 'red'}" style="font-size:10px;">${r.analista}</span>
+            </div>
+        `).join('') || '<div style="color:var(--text-dim);">Sin movimientos</div>';
+
+    } catch (err) {
+        console.error('Error en loadDashboardStats:', err);
+        document.getElementById('connection-status').innerText = 'ERROR DE CONEXIÓN API';
+        document.getElementById('connection-status').style.color = 'var(--red-light)';
+    }
+}
+
+async function loadClaimsQueue() {
+    try {
+        const res = await fetch(`${API_BASE}/claims`);
+        if (!res.ok) throw new Error('Error al obtener cola de siniestros');
+        cachedClaims = await res.json();
+
+        const pendingCount = cachedClaims.filter(c => c.estado === 'PENDIENTE').length;
+        document.getElementById('pending-claims-badge').innerText = `${pendingCount} casos pendientes de resolución`;
+
+        renderClaimsTable(cachedClaims);
+    } catch (err) {
+        console.error('Error en loadClaimsQueue:', err);
+        document.getElementById('claimsBody').innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:var(--red-light);">Error al mapear la cola de siniestros desde el grafo.</td></tr>`;
+    }
+}
+
+async function loadAuditHistory() {
+    try {
+        const res = await fetch(`${API_BASE}/history`);
+        if (!res.ok) throw new Error('Error al leer historial');
+        cachedHistory = await res.json();
+        renderHistoryList(cachedHistory);
+    } catch (err) {
+        console.error('Error en loadAuditHistory:', err);
+    }
+}
+
+async function loadRulesEngine() {
+    try {
+        const res = await fetch(`${API_BASE}/rules`);
+        if (!res.ok) throw new Error('Error al leer motor de reglas');
+        cachedRules = await res.json();
+        renderRulesEngine(cachedRules);
+    } catch (err) {
+        console.error('Error en loadRulesEngine:', err);
+    }
+}
+
+// =====================================================================
+// RENDERIZADO DE TABLAS Y INTERFAZ DE REGLAS
+// =====================================================================
+function renderClaimsTable(dataset) {
+    const body = document.getElementById('claimsBody');
+    if (dataset.length === 0) {
+        body.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:20px; color:var(--text-muted);">0 casos encontrados con los filtros actuales.</td></tr>`;
+        return;
+    }
+
+    body.innerHTML = dataset.map(c => {
+        const resuelto = c.estado === 'LIQUIDADO' || c.estado === 'RECHAZADO_FRAUDE';
+        const riskColor = getRiskColor(c.scoreRiesgo);
+
+        return `<tr id="row-${c.id}">
+            <td class="td-mono" style="font-weight:700;">${c.id}</td>
+            <td><span class="badge ${c.categoryBadge}">${c.categoria}</span></td>
+            <td>
+                <div style="font-weight:600;">${c.usuarioNombre}</div>
+                <div style="font-size:10px; color: var(--text-muted); font-family: var(--mono);">${c.userId}</div>
+            </td>
+            <td class="td-mono" style="font-weight:700;">$${c.monto.toLocaleString('es-AR')}</td>
+            <td class="td-mono">${c.fechaReporte}</td>
+            <td>
+                <div>${c.proveedorNombre}</div>
+                <div style="font-size:10px; color: var(--text-muted); font-family: var(--mono);">${c.proveedorCuit}</div>
+            </td>
+            <td>
+                <div class="risk-bar-wrap">
+                    <div class="risk-bar-outer">
+                        <div class="risk-bar-inner" style="width:${c.scoreRiesgo*100}%; background:${riskColor};"></div>
+                    </div>
+                    <span style="font-family: var(--mono); font-size:10px; color:${riskColor}; min-width:30px;">${(c.scoreRiesgo*100).toFixed(0)}%</span>
+                </div>
+            </td>
+            <td><span class="badge ${getEstadoBadge(c.estado)}" id="badge-${c.id}">${c.estado.replace('_', ' ')}</span></td>
+            <td>
+                <button class="btn btn-primary btn-sm" onclick="runAudit('${c.id}')" ${resuelto ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
+                    Auditar Neo4j
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function applyFilters() {
+    const dateStart = document.getElementById('filter-date-start').value;
+    const amountMin = parseFloat(document.getElementById('filter-amount-min').value) || 0;
+    const amountMax = parseFloat(document.getElementById('filter-amount-max').value) || Infinity;
+    const risk = document.getElementById('filter-risk').value;
+    const provider = document.getElementById('filter-provider').value.toLowerCase();
+    const user = document.getElementById('filter-user').value.toLowerCase();
+    const status = document.getElementById('filter-status').value;
+
+    const filtered = cachedClaims.filter(c => {
+        const matchesDate = !dateStart || c.fechaReporte >= dateStart;
+        const matchesAmount = c.monto >= amountMin && c.monto <= amountMax;
+        const matchesProvider = c.proveedorNombre.toLowerCase().includes(provider);
+        const matchesUser = c.usuarioNombre.toLowerCase().includes(user) || c.userId.toLowerCase().includes(user);
+        const matchesStatus = status === 'all' || c.estado === status;
+        
+        let matchesRisk = true;
+        if (risk === 'high') matchesRisk = c.scoreRiesgo >= 0.8;
+        else if (risk === 'medium') matchesRisk = c.scoreRiesgo >= 0.5 && c.scoreRiesgo < 0.8;
+        else if (risk === 'low') matchesRisk = c.scoreRiesgo < 0.5;
+
+        return matchesDate && matchesAmount && matchesProvider && matchesUser && matchesStatus && matchesRisk;
+    });
+
+    renderClaimsTable(filtered);
+}
+
+function applyHistoryFilters() {
+    const dateStart = document.getElementById('hist-filter-date-start').value;
+    const amountMin = parseFloat(document.getElementById('hist-filter-amount-min').value) || 0;
+    const user = document.getElementById('hist-filter-user').value.toLowerCase();
+    const provider = document.getElementById('hist-filter-provider').value.toLowerCase();
+    const analyst = document.getElementById('hist-filter-analyst').value.toLowerCase();
+    const status = document.getElementById('hist-filter-status').value;
+
+    const filtered = cachedHistory.filter(h => {
+        const matchesDate = !dateStart || h.ts >= dateStart;
+        const matchesAmount = h.monto >= amountMin;
+        const matchesUser = h.usuarioNombre.toLowerCase().includes(user) || (h.id && h.id.toLowerCase().includes(user));
+        const matchesProvider = h.proveedorNombre.toLowerCase().includes(provider);
+        const matchesAnalyst = h.analyst.toLowerCase().includes(analyst);
+        const matchesStatus = status === 'all' || h.decision === status;
+
+        return matchesDate && matchesAmount && matchesUser && matchesProvider && matchesAnalyst && matchesStatus;
+    });
+
+    renderHistoryList(filtered);
+}
+
+function renderHistoryList(history) {
+    const container = document.getElementById('history-list');
+    if (history.length === 0) {
+        container.innerHTML = `
+            <div style="color: var(--text-muted); font-size: 12px; padding: 20px; text-align: center; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;">
+                No se encontraron decisiones con los filtros actuales.
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = history.map(h => {
+        const isApprove = h.decision === 'LIQUIDADO';
+        return `
+            <div class="audit-log-item" style="border-left: 3px solid ${isApprove ? 'var(--green)' : 'var(--red)'}">
+                <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">
+                        <span class="audit-log-id">${h.id}</span>
+                        <span class="badge ${isApprove ? 'badge-green' : 'badge-red'}">${h.decision.replace('_', ' ')}</span>
+                    </div>
+                    <div class="audit-log-analyst">${h.usuarioNombre} · $${h.monto.toLocaleString('es-AR')} · ${h.proveedorNombre}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:10px; color:var(--text-muted); font-family: var(--mono);">${h.ts}</div>
+                    <div style="font-size:10px; color:var(--text-muted);">${h.analyst}</div>
+                </div>
+                <div class="audit-log-justif">"${h.notes}"</div>
+            </div>`;
+    }).join('');
+}
+
+function renderRulesEngine(rules) {
+    const container = document.getElementById('rules-container');
+    container.innerHTML = rules.map((rule, i) => `
+        <div class="rule-card">
+            <div class="rule-card-header" onclick="toggleRule(${i})">
+                <div style="display:flex; align-items:center;">
+                    <span class="rule-id">${rule.id}</span>
+                    <span class="rule-name">${rule.nombre}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="badge ${rule.severityBadge} rule-severity">${rule.severidad}</span>
+                    <span style="font-size:11px; color: ${rule.activa ? 'var(--green-light)' : 'var(--text-muted)'}; font-family: var(--mono);">
+                        ${rule.activa ? '● ACTIVA' : '○ INACTIVA'}
+                    </span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted)"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+            <div class="rule-body" id="rule-body-${i}">
+                <div class="rule-field">
+                    <label>Descripción</label>
+                    <textarea id="rule-desc-${rule.id}" style="min-height:44px;" disabled>${rule.descripcion}</textarea>
+                </div>
+                ${rule.umbral !== undefined ? `
+                <div class="rule-field">
+                    <label>Umbral / Valor de Corte (ARS)</label>
+                    <input type="number" id="rule-umb-${rule.id}" value="${rule.umbral}" disabled />
+                </div>` : ''}
+                <div class="rule-field">
+                    <label>Consulta Cypher generada (Solo lectura en Motor Engine)</label>
+                    <div class="cypher-block">${rule.cypher}</div>
+                </div>
+                <div class="rule-actions" style="align-items: center; gap: 12px;">
+                    <button class="btn btn-primary btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">Guardar Cambios</button>
+                    <button class="btn btn-ghost btn-sm" disabled style="opacity: 0.5; cursor: not-allowed;">${rule.activa ? 'Desactivar Regla' : 'Activar Regla'}</button>
+                    <span style="font-size: 10px; color: var(--orange-light); font-style: italic; display: flex; align-items: center; gap: 4px;">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        (Solo un admin puede modificar esto)
+                    </span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// =====================================================================
+// ACCIONES: GUARDAR REGLAS Y CAMBIAR ESTADOS VIA API
+// =====================================================================
+async function saveRuleChanges(ruleId) {
+    const desc = document.getElementById(`rule-desc-${ruleId}`).value;
+    const umbralEl = document.getElementById(`rule-umb-${ruleId}`);
+    const umbral = umbralEl ? parseFloat(umbralEl.value) : null;
+
+    try {
+        const res = await fetch(`${API_BASE}/rules/${ruleId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ descripcion: desc, umbral: umbral })
+        });
+        if (res.ok) {
+            alert(`Regla ${ruleId} actualizada con éxito en Neo4j.`);
+            loadRulesEngine();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+async function toggleRuleStatusBackend(ruleId, currentStatus) {
+    try {
+        const res = await fetch(`${API_BASE}/rules/${ruleId}/toggle`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activa: !currentStatus })
+        });
+        if (res.ok) {
+            loadRulesEngine();
+        }
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// =====================================================================
+// FLUJO EJECUCIÓN DE AUDITORÍA (CONSUMO DESDE BASE DE DATOS)
+// =====================================================================
+async function runAudit(claimId) {
+    const claim = cachedClaims.find(c => c.id === claimId);
+    if (!claim) return;
+    activeClaim = claim;
+
+    const drawer = document.getElementById('audit-drawer');
+    const terminal = document.getElementById('neo-terminal');
+
+    // Inicializar UI del panel lateral
+    document.getElementById('analyst-notes').value = '';
+    document.getElementById('analyst-notes').disabled = false;
+    document.getElementById('btn-approve').disabled = false;
+    document.getElementById('btn-reject').disabled = false;
+    document.getElementById('decision-result').classList.remove('show');
+    document.getElementById('decision-result').innerHTML = '';
+
+    drawer.classList.add('open');
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('drawer-title').innerText = `Análisis Neo4j — ${claim.id}`;
+    document.getElementById('drawer-subtitle').innerText = `${claim.usuarioNombre} · ${claim.tipoCobertura} · $${claim.monto.toLocaleString('es-AR')}`;
+
+    // Animación de consultas simulando ejecución directa contra la BD a través de Bolt/API
+    const ts = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    terminal.innerHTML = `<span class="t-comment">// [${ts}] Estableciendo sesión Bolt con la instancia Neo4j...</span>\n`;
+
+    await delay(300);
+    terminal.innerHTML += `<span class="t-query">MATCH (s:Siniestro {id: '${claim.id}'})<-[:REPORTO]-(u:Usuario)\nMATCH (s)-[:ASOCIADO_A]->(p:Proveedor)\nRETURN s, u, p, u.scoreRiesgo AS riesgoNodo</span>\n`;
+
+    // Realizamos la llamada al backend para obtener el análisis relacional real del caso
+    try {
+        const res = await fetch(`${API_BASE}/claims/${claimId}/audit`);
+        if (!res.ok) throw new Error('Error al ejecutar queries en el motor.');
+        const auditResponse = await res.json();
+        lastAuditData = auditResponse; // Guardar para el modal
+
+        await delay(400);
+        // ... (resto de la lógica de terminal)
+        auditResponse.terminalLogs.forEach(log => {
+            terminal.innerHTML += `<span class="${log.type}">${log.text}</span>\n`;
+        });
+        terminal.scrollTop = terminal.scrollHeight;
+
+        renderGraph(auditResponse.graphStructure);
+
+        const verdictEl = document.getElementById('engine-verdict');
+        verdictEl.className = `verdict-engine-result ${auditResponse.verdict.severity}`;
+        verdictEl.innerText = auditResponse.verdict.message;
+
+        const rulesEl = document.getElementById('verdict-rules');
+        rulesEl.innerHTML = auditResponse.verdict.triggeredRules.map(r => 
+            `<span class="rule-tag" onclick="openRuleModal('${r}')">${r}</span>`
+        ).join('') || '<span style="font-size:11px;color:var(--text-muted)">Sin reglas de negocio disparadas</span>';
+        // ... (resto de runAudit)
+
+        document.getElementById('verdict-detail').innerText = auditResponse.verdict.detail;
+
+        const recColor = auditResponse.verdict.recommendation === 'APROBAR' ? 'var(--green-light)' : 'var(--red-light)';
+        document.getElementById('decision-info').innerHTML = `
+            Motor recomienda: <strong style="color:${recColor}">${auditResponse.verdict.recommendation}</strong>.<br>
+            Revise el grafo, el resultado del motor y las reglas disparadas. Ingrese su justificación y confirme la decisión. 
+            <em style="color:var(--yellow-light)">La resolución final es responsabilidad exclusiva del analista.</em>
+        `;
+
+    } catch (err) {
+        console.error(err);
+        terminal.innerHTML += `<span class="t-danger">ERROR CRÍTICO: Falló la comunicación interna de procedimientos Cypher.</span>\n`;
+    }
+}
+
+// =====================================================================
+// PERSISTENCIA DE DECISIÓN DEL ANALISTA VIA API
+// =====================================================================
+async function submitDecision(decision) {
+    const notes = document.getElementById('analyst-notes').value.trim();
+    if (!notes) {
+        document.getElementById('analyst-notes').focus();
+        document.getElementById('analyst-notes').style.borderColor = 'var(--red-light)';
+        setTimeout(() => document.getElementById('analyst-notes').style.borderColor = 'var(--border)', 2000);
+        return;
+    }
+
+    if (!activeClaim) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/claims/${activeClaim.id}/decision`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decision, notes, analyst: 'Luis Andreani' })
+        });
+
+        if (!res.ok) throw new Error('No se pudo guardar la decisión en la BD.');
+
+        // Actualizar localmente el estado de la cola
+        activeClaim.estado = decision;
+        const badgeEl = document.getElementById(`badge-${activeClaim.id}`);
+        if (badgeEl) {
+            badgeEl.className = `badge ${decision === 'LIQUIDADO' ? 'badge-green' : 'badge-red'}`;
+            badgeEl.innerText = decision.replace('_', ' ');
+        }
+
+        // Refrescar el historial y contadores generales
+        loadAuditHistory();
+        loadDashboardStats();
+
+        // Mostrar confirmación visual en el Drawer
+        const resultEl = document.getElementById('decision-result');
+        const isApprove = decision === 'LIQUIDADO';
+        resultEl.className = `decision-result show`;
+        resultEl.style.background = isApprove ? 'rgba(35,134,54,0.1)' : 'rgba(218,54,51,0.1)';
+        resultEl.style.border = `1px solid ${isApprove ? 'var(--green)' : 'var(--red)'}`;
+        resultEl.style.color = isApprove ? 'var(--green-light)' : 'var(--red-light)';
+        resultEl.innerHTML = `
+            <strong>${isApprove ? '✓ Siniestro aprobado y en cola de liquidación.' : '✗ Siniestro rechazado por fraude. Expediente enviado a área legal.'}</strong><br>
+            <span style="font-size:10px; opacity:0.8; font-family: var(--mono);">Registrado en Base de Datos de Grafos con éxito. Analista: Luis Andreani</span>
+        `;
+
+        // Deshabilitar controles de edición inmediatos
+        document.getElementById('btn-approve').disabled = true;
+        document.getElementById('btn-reject').disabled = true;
+        document.getElementById('analyst-notes').disabled = true;
+
+        // Deshabilitar también el botón principal en la tabla
+        loadClaimsQueue();
+
+    } catch (err) {
+        console.error(err);
+        alert('Error crítico al procesar la sentencia de actualización transaccional.');
+    }
+}
+
+// =====================================================================
+// ENGINE CHARTJS DINÁMICO (CONSUMO DESDE BACKEND)
+// =====================================================================
+async function loadChartsData() {
+    try {
+        const res = await fetch(`${API_BASE}/charts-data`);
+        if (!res.ok) throw new Error('Error al leer datos estructurados de gráficos');
+        const data = await res.json();
+
+        // 1. Gráfico de Evolución Temporal (Líneas)
+        const ctx = document.getElementById('evolutionChart').getContext('2d');
+        if (evolutionChartInstance) evolutionChartInstance.destroy();
+        evolutionChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.evolution.labels,
+                datasets: data.evolution.datasets.map(ds => ({
+                    ...ds,
+                    backgroundColor: ds.label === 'Fraude Duro' ? 'rgba(248,81,73,0.07)' : ds.label === 'Colusión' ? 'rgba(240,136,62,0.07)' : 'rgba(63,185,80,0.05)',
+                    fill: true, tension: 0.3, pointRadius: 3
+                }))
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true, labels: { color: '#7d8590', font: { size: 10 } } } },
+                scales: {
+                    x: { ticks: { color: '#7d8590', font: { size: 9 } }, grid: { color: '#21262d' } },
+                    y: { ticks: { color: '#7d8590', font: { size: 9 } }, grid: { color: '#21262d' } }
+                }
+            }
+        });
+
+        // 2. Gráfico de Distribución (Dona)
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+        if (typeChartInstance) typeChartInstance.destroy();
+        typeChartInstance = new Chart(typeCtx, {
+            type: 'doughnut',
+            data: {
+                labels: data.distribution.labels,
+                datasets: [{
+                    data: data.distribution.values,
+                    backgroundColor: ['rgba(248,81,73,0.7)', 'rgba(240,136,62,0.7)', 'rgba(210,153,34,0.7)', 'rgba(63,185,80,0.7)'],
+                    borderColor: ['#f85149', '#f0883e', '#d29922', '#3fb950'],
+                    borderWidth: 1.5
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { color: '#7d8590', font: { size: 9 }, padding: 10 } } }
+            }
+        });
+
+    } catch (err) {
+        console.error('Error al mapear gráficos dinámicos:', err);
+    }
+}
+
+// =====================================================================
+// ENGINE GRÁFICO RELACIONAL (RENDERIZADOR VECTORIAL SVG INTERNO)
+// =====================================================================
+function renderGraph(graphStructure) {
+    const svg = document.getElementById('graph-svg');
+    svg.innerHTML = '';
+
+    const CX = 260, CY = 110;
+
+    // Dibujar relaciones primero para respetar las capas del SVG (líneas atrás, círculos al frente)
+    graphStructure.edges.forEach(e => {
+        line(e.x1, e.y1, e.x2, e.y2, e.color, e.label);
+    });
+
+    // Dibujar nodos
+    graphStructure.nodes.forEach(n => {
+        circle(n.x, n.y, n.radius, n.fill, n.label, n.sublabel);
+    });
+
+    // Texto descriptivo inferior
+    if (graphStructure.infoText) {
+        const info = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        info.setAttribute('x', CX); info.setAttribute('y', 205);
+        info.setAttribute('text-anchor', 'middle');
+        info.setAttribute('fill', '#d29922'); info.setAttribute('font-size', '8.5');
+        info.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        info.textContent = graphStructure.infoText;
+        svg.appendChild(info);
+    }
+
+    // Funciones utilitarias primitivas del motor SVG
+    function circle(x, y, r, fill, label, sublabel = '') {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', r);
+        c.setAttribute('fill', fill); c.setAttribute('fill-opacity', '0.2');
+        c.setAttribute('stroke', fill); c.setAttribute('stroke-width', '2');
+        g.appendChild(c);
+
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', x); t.setAttribute('y', y + (sublabel ? -4 : 4));
+        t.setAttribute('text-anchor', 'middle');
+        t.setAttribute('fill', fill); t.setAttribute('font-size', '9');
+        t.setAttribute('font-family', 'IBM Plex Mono, monospace');
+        t.setAttribute('font-weight', '700');
+        t.textContent = label;
+        g.appendChild(t);
+
+        if (sublabel) {
+            const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t2.setAttribute('x', x); t2.setAttribute('y', y + 10);
+            t2.setAttribute('text-anchor', 'middle');
+            t2.setAttribute('fill', fill); t2.setAttribute('fill-opacity', '0.7');
+            t2.setAttribute('font-size', '7.5');
+            t2.setAttribute('font-family', 'IBM Plex Mono, monospace');
+            t2.textContent = sublabel;
+            g.appendChild(t2);
+        }
+        svg.appendChild(g);
+    }
+
+    function line(x1, y1, x2, y2, color, label = '') {
+        const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        l.setAttribute('x1', x1); l.setAttribute('y1', y1);
+        l.setAttribute('x2', x2); l.setAttribute('y2', y2);
+        l.setAttribute('stroke', color); l.setAttribute('stroke-width', '1.5');
+        l.setAttribute('stroke-dasharray', '4,3');
+        svg.appendChild(l);
+
+        if (label) {
+            const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+            const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t.setAttribute('x', mx); t.setAttribute('y', my - 4);
+            t.setAttribute('text-anchor', 'middle');
+            t.setAttribute('fill', color); t.setAttribute('fill-opacity', '0.7');
+            t.setAttribute('font-size', '8');
+            t.setAttribute('font-family', 'IBM Plex Mono, monospace');
+            t.textContent = label;
+            svg.appendChild(t);
+        }
+    }
+}
+
+// =====================================================================
+// NAVEGACIÓN Y UTILERÍA COMPLEMENTARIA
+// =====================================================================
+function switchView(viewId, navElement) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+    navElement.classList.add('active');
+    document.getElementById(viewId).classList.add('active');
+    document.getElementById('view-title').innerText = navElement.innerText.trim();
+}
+
+function toggleRule(i) {
+    const body = document.getElementById(`rule-body-${i}`);
+    body.classList.toggle('open');
+}
+
+function closeDrawer() {
+    document.getElementById('audit-drawer').classList.remove('open');
+    document.getElementById('overlay').classList.remove('show');
+    closeRuleModal();
+}
+
+// MODAL DE REGLAS
+function openRuleModal(ruleId) {
+    if (!lastAuditData) return;
+    
+    const rule = cachedRules.find(r => r.id === ruleId);
+    const modal = document.getElementById('rule-modal');
+    
+    document.getElementById('m-rule-id').innerText = ruleId;
+    document.getElementById('m-rule-desc').innerText = rule ? rule.descripcion : "Descripción no disponible.";
+    
+    // Buscar el log específico de esta regla en los terminalLogs del servidor
+    const log = lastAuditData.terminalLogs.find(l => l.text.includes(ruleId));
+    document.getElementById('m-rule-data').innerText = log ? log.text : "No hay datos de validación adicionales.";
+    
+    modal.style.display = 'block';
+    document.getElementById('overlay').classList.add('show');
+}
+
+function closeRuleModal() {
+    document.getElementById('rule-modal').style.display = 'none';
+}
+
+function getRiskColor(score) {
+    if (score >= 0.8) return 'var(--red-light)';
+    if (score >= 0.5) return 'var(--yellow-light)';
+    return 'var(--green-light)';
+}
+
+function getEstadoBadge(estado) {
+    const map = {
+        'PENDIENTE': 'badge-yellow',
+        'EN_AUDITORIA': 'badge-blue',
+        'LIQUIDADO': 'badge-green',
+        'RECHAZADO_FRAUDE': 'badge-red',
+    };
+    return map[estado] || 'badge-gray';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
